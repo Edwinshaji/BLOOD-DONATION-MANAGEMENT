@@ -8,7 +8,8 @@ $email    = isset($_POST['email']) ? $conn->real_escape_string($_POST['email']) 
 $password = isset($_POST['password']) ? $_POST['password'] : '';
 
 if (!$email || !$password) {
-    die("All fields are required.");
+    echo "<script>alert('All fields are required.'); window.location.href='../login.php';</script>";
+    exit;
 }
 
 // 1. Check if email is main admin

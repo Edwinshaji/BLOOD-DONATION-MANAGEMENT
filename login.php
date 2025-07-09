@@ -1,3 +1,21 @@
+<?php
+session_start();
+if (isset($_SESSION['role'])) {
+    if ($_SESSION['role'] === 'admin') {
+        header("Location: admin/index_admin.php");
+        exit;
+    } elseif ($_SESSION['role'] === 'user' || $_SESSION['role'] === 'student') {
+        header("Location: user/index_user.php");
+        exit;
+    } elseif ($_SESSION['role'] === 'hospital') {
+        header("Location: hospital/index_hospital.php");
+        exit;
+    } elseif ($_SESSION['role'] === 'college') {
+        header("Location: college/index_college.php");
+        exit;
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
