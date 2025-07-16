@@ -22,10 +22,7 @@ if (isset($_SESSION['role'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blood Donation Management - Login</title>
-    <!-- Bootstrap CSS-->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <?php include './includes/header.php' ?>
     <style>
         body {
             min-height: 100vh;
@@ -181,9 +178,7 @@ if (isset($_SESSION['role'])) {
             </div>
         </div>
     </div>
-    <!--Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <?php include './includes/footer.php' ?>
     <script>
     $('#email').on('blur', function() {
         var email = $(this).val();

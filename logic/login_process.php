@@ -13,15 +13,16 @@ if (!$email || !$password) {
 }
 
 // 1. Check if email is main admin
-$stmt = $conn->prepare("SELECT admin_id, email, password FROM main_admin WHERE email = ?");
+$stmt = $conn->prepare("SELECT admin_id, admin_name,email, password FROM main_admin WHERE email = ?");
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $stmt->store_result();
 if ($stmt->num_rows === 1) {
-    $stmt->bind_result($admin_id, $admin_email, $hashed_password);
+    $stmt->bind_result($admin_id, $admin_name,$admin_email, $hashed_password);
     $stmt->fetch();
     if (password_verify($password, $hashed_password)) {
         $_SESSION['admin_id'] = $admin_id;
+        $_SESSION['admin_name'] = $admin_name;
         $_SESSION['admin_email'] = $admin_email;
         $_SESSION['role'] = 'admin';
         header("Location: ../admin/index_admin.php");
