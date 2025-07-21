@@ -252,7 +252,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <div class="dropdown-menu">
                 <a class="nav-link <?= ($current_page == 'analytics.php') ? 'active' : '' ?>" href="analytics.php">System Analytics</a>
                 <a class="nav-link <?= ($current_page == 'export_pdf.php') ? 'active' : '' ?>" href="export_pdf.php">Export PDF</a>
-                <a class="nav-link <?= ($current_page == 'export_excel.php') ? 'active' : '' ?>" href="export_excel.php">Export Excel</a>
             </div>
         </li>
     </ul>

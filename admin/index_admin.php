@@ -13,7 +13,7 @@ include '../includes/auth.php';
     <style>
         body {
             font-family: 'Montserrat', Arial, sans-serif;
-            background: #fff5f5;
+            background: #f8f9fa;
         }
 
         .main-content {

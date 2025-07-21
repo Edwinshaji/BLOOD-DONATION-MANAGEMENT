@@ -12,7 +12,7 @@ $admin_role = isset($_SESSION['role']) ? $_SESSION['role'] : "Administrator";
 
 <head>
     <meta charset="UTF-8">
-    <title>Admin Profile</title>
+    <title>Admin Dashboard</title>
     <?php include '../includes/header.php' ?>
     <style>
         body {
