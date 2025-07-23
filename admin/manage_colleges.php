@@ -78,7 +78,7 @@ if ($search_query !== '') {
         }
 
         .search-bar {
-            max-width: 300px;
+            max-width: 400px;
         }
 
         .table-wrapper {
@@ -165,7 +165,7 @@ if ($search_query !== '') {
             <h2 class="fw-bold text-secondary mt-5">Manage Colleges</h2>
             <form class="search-bar mt-5" method="GET" action="">
                 <div class="input-group">
-                    <input type="text" name="query" class="form-control" placeholder="Search by name..." value="<?= htmlspecialchars($search_query) ?>">
+                    <input type="text" name="query" class="form-control" placeholder="Search by college..." value="<?= htmlspecialchars($search_query) ?>">
                     <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
                 </div>
             </form>

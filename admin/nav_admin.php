@@ -250,7 +250,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <li class="nav-item dropdown">
             <a href="#" class="nav-link dropdown-toggle"><i class="bi bi-bar-chart me-2"></i> Analytics</a>
             <div class="dropdown-menu">
-                <a class="nav-link <?= ($current_page == 'analytics.php') ? 'active' : '' ?>" href="analytics.php">System Analytics</a>
+                <a class="nav-link <?= ($current_page == 'analytics.php') ? 'active' : '' ?>" href="system_analytics.php">System Analytics</a>
                 <a class="nav-link <?= ($current_page == 'export_pdf.php') ? 'active' : '' ?>" href="export_pdf.php">Export PDF</a>
             </div>
         </li>
@@ -266,7 +266,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
 <!-- Sidebar JS Toggle Script -->
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
         const sidebar = document.getElementById('sidebarMenu');
         const toggleBtn = document.getElementById('sidebarToggleMobile');
         const backdrop = document.getElementById('sidebarBackdrop');

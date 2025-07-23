@@ -57,7 +57,7 @@ if ($search_query !== '') {
         }
 
         .search-bar {
-            max-width: 300px;
+            max-width: 400px;
         }
 
         .table-wrapper {
