@@ -258,7 +258,6 @@ $pending_institutions_list = $inst_stmt->fetch_all(MYSQLI_ASSOC);
                                         <th>Name</th>
                                         <th>Blood Group</th>
                                         <th>User Type</th>
-                                        <th>Institution</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -268,7 +267,6 @@ $pending_institutions_list = $inst_stmt->fetch_all(MYSQLI_ASSOC);
                                             <td><?= htmlspecialchars($donor['name']) ?></td>
                                             <td><span class="badge bg-danger"><?= htmlspecialchars($donor['blood_group']) ?></span></td>
                                             <td><?= ucfirst(htmlspecialchars($donor['role'])) ?></td>
-                                            <td><?= htmlspecialchars($donor['institution'] ?? '-') ?></td>
                                             <td><a href="manage_users.php" class="btn btn-outline-danger btn-sm">View</a></td>
                                         </tr>
                                     <?php endforeach; ?>

@@ -1,43 +1,30 @@
 <?php
-$required_role = "user";
+$required_role = ['user', 'student'];
 include '../includes/auth.php';
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Dashboard</title>
-    <style>
-        .logout-btn {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            padding: 8px 18px;
-            background: #e57373;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .logout-btn:hover {
-            background: #ffb3b3;
-            color: #e57373;
-        }
-    </style>
+    <?php include '../includes/header.php' ?>
 </head>
+
 <body>
-    <a href="../logout.php" class="logout-btn">Logout</a>
-    <h1>Users Dashboard</h1>
-    
-    <script>
-    window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            window.location.reload();
-        }
-    });
-    </script>
+    <?php include 'user_layout_start.php' ?>
+    <!-- Page Content -->
+    <h1 class="mb-4">Welcome to Your Dashboard</h1>
+    <p class="lead">Manage your donations, events, and account here.</p>
+
+    <!-- Optional Custom Logout Button -->
+    <a href="../logout.php" class="btn logout-btn position-absolute top-0 end-0 m-3">
+        Logout
+    </a>
+    <?php include 'user_layout_end.php' ?>
+    <?php include '../includes/footer.php' ?>
 </body>
+
 </html>
