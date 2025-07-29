@@ -1,6 +1,7 @@
 <?php
 $required_role = "hospital";
 include '../includes/auth.php';
+include '../config/db.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -8,6 +9,7 @@ include '../includes/auth.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hospital Dashboard</title>
+    <?php include '../includes/header.php' ?>
     <style>
         .logout-btn {
             position: absolute;
@@ -29,15 +31,11 @@ include '../includes/auth.php';
     </style>
 </head>
 <body>
-    <a href="../logout.php" class="logout-btn">Logout</a>
-    <h1>Hospital Dashboard</h1>
+    <?php include 'hospital_layout_start.php' ?>
+        <h1>Hello</h1>
+    <?php include 'hospital_layout_end.php' ?>
+    <?php include '../includes/footer.php' ?>
 
-   <script>
-    window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            window.location.reload();
-        }
-    });
-    </script>
+
 </body>
 </html>

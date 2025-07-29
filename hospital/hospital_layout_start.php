@@ -1,4 +1,4 @@
-<?php include 'nav_admin.php'; ?>
+<?php include 'nav_hospital.php'; ?>
 
 <div class="container-fluid">
     <div class="row flex-nowrap">
