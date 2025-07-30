@@ -26,21 +26,72 @@ if (!$request) {
 // Mark as donated
 if (isset($_GET['donate_id'])) {
     $response_id = intval($_GET['donate_id']);
-    $stmt = $conn->prepare("UPDATE request_responses SET status='donated', responded_at=NOW() WHERE response_id=?");
-    $stmt->bind_param("i", $response_id);
-    $stmt->execute();
 
+    // Mark the emergency request as fulfilled
     $stmt = $conn->prepare("UPDATE emergency_requests SET status='fulfilled' WHERE request_id=?");
     $stmt->bind_param("i", $request_id);
     $stmt->execute();
+
+    // Fetch donor details and hospital coordinates
+    $stmt = $conn->prepare("
+        SELECT rr.user_id, d.donor_id, d.user_id, i.latitude, i.longitude 
+        FROM request_responses rr
+        JOIN donors d ON rr.user_id = d.user_id
+        JOIN institutions i ON i.institution_id = ?
+        WHERE rr.response_id = ?
+    ");
+    $stmt->bind_param("ii", $institution_id, $response_id);
+    $stmt->execute();
+    $donor_data = $stmt->get_result()->fetch_assoc();
+
+    if ($donor_data) {
+        $user_id = $donor_data['user_id'];
+        $donor_id = $donor_data['donor_id'];
+        $lat = $donor_data['latitude'];
+        $lng = $donor_data['longitude'];
+
+        // 🔹 Reverse geocode hospital lat/lng to get place name
+        $location_name = "Unknown Location";
+        if (!empty($lat) && !empty($lng)) {
+            $url = "https://nominatim.openstreetmap.org/reverse?format=json&lat={$lat}&lon={$lng}&zoom=14&addressdetails=1";
+            $options = [
+                "http" => [
+                    "header" => "User-Agent: BloodDonationApp/1.0\r\n"
+                ]
+            ];
+            $context = stream_context_create($options);
+            $response = file_get_contents($url, false, $context);
+            if ($response !== false) {
+                $json = json_decode($response, true);
+                if (isset($json['display_name'])) {
+                    $location_name = $json['display_name'];
+                }
+            }
+        }
+
+        // Insert into donations table
+        $stmt = $conn->prepare("
+            INSERT INTO donations (donor_id, event_id, date, location, verified_by)
+            VALUES (?, NULL, CURDATE(), ?, ?)
+        ");
+        $stmt->bind_param("isi", $donor_id, $location_name, $institution_id);
+        $stmt->execute();
+
+        // Update donor's last_donated date
+        $stmt = $conn->prepare("UPDATE donors SET last_donated = CURDATE() WHERE donor_id=?");
+        $stmt->bind_param("i", $donor_id);
+        $stmt->execute();
+    }
 
     $_SESSION['success'] = "Donation marked successfully!";
     header("Location: view_request_response.php?request_id=" . $request_id);
     exit;
 }
 
+
+
 // Fetch responses
-$stmt = $conn->prepare("SELECT rr.response_id, rr.status, rr.responded_at, 
+$stmt = $conn->prepare("SELECT rr.response_id, rr.user_id, rr.status, rr.responded_at, 
     u.name, u.email, u.phone, u.role
     FROM request_responses rr
     JOIN users u ON rr.user_id=u.user_id
@@ -119,6 +170,7 @@ $responses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                         <span class="badge bg-secondary">Cancelled</span>
                     <?php endif; ?>
                 </p>
+                <hr>
                 <a href="emergency_requests.php" class="btn btn-outline-danger rounded-pill px-4">
                     ← Back to Requests
                 </a>
@@ -126,8 +178,8 @@ $responses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         </div>
 
         <!-- Responders Table -->
-        <h4 class="mt-4">Responders</h4>
-        <div class="table-responsive">
+        <!-- <h4 class="mt-4">Responders</h4> -->
+        <div class="table-responsive mt-3">
             <table class="table table-bordered table-hover text-center align-middle">
                 <thead class="table-danger">
                     <tr>
@@ -170,6 +222,8 @@ $responses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                             onclick="return confirm('Mark this donor as donated?');">
                                             <i class="bi bi-check-circle-fill"></i> Donate
                                         </a>
+                                    <?php elseif($res['user_id'] === $user_id) : ?>
+                                       <span class="badge bg-success">Donated</span>
                                     <?php else: ?>
                                         <span class="text-muted">-</span>
                                     <?php endif; ?>

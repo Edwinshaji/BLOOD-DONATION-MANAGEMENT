@@ -155,9 +155,7 @@ $active_res = $all_requests->get_result()->fetch_all(MYSQLI_ASSOC);
                                     </td>
                                     <td><?= date("M d, Y H:i", strtotime($req['created_at'])) ?></td>
                                     <td>
-                                        <?= $req['total_responses'] > 0
-                                            ? "<span class='badge bg-success'>{$req['total_responses']} Accepted</span>"
-                                            : "<span class='badge bg-secondary'>0</span>"; ?>
+                                        <?= $req['total_responses'] ?>
                                     </td>
                                     <td class="text-nowrap">
                                         <a href="view_request_response.php?request_id=<?= $req['request_id'] ?>"

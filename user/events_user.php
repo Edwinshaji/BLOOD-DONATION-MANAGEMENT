@@ -8,7 +8,7 @@ $user_college = $_SESSION['institution_id'] ?? null;
 
 $search = $_GET['search'] ?? '';
 
-// Fetch all events from user's college and nearby institutions
+// Fetch all events
 $query = "
     SELECT e.*, i.name AS organizer
     FROM events e
@@ -51,26 +51,29 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Events | User Dashboard</title>
     <?php include '../includes/header.php' ?>
-
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        h2,
-        h3 {
-            font-weight: 600;
-        }
-
         .event-card {
-            border-radius: 14px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-            transition: all 0.3s ease-in-out;
+            border-radius: 16px;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: none;
+            overflow: hidden;
         }
 
         .event-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+            transform: translateY(-8px);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .event-header {
+            background: linear-gradient(135deg, #dc3545, #ff6b81);
+            color: white;
+            padding: 14px;
+        }
+
+        .event-badge {
+            font-size: 0.8rem;
+            font-weight: 600;
         }
 
         .countdown {
@@ -80,14 +83,14 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
         }
 
         .search-bar {
-            max-width: 600px;
+            max-width: 700px;
             margin: 20px auto 40px;
         }
 
         .search-input {
             border-radius: 30px !important;
             padding: 12px 20px;
-            box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
         .btn-search {
@@ -100,29 +103,42 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
     <?php include 'user_layout_start.php' ?>
 
     <div class="container my-4">
-        <h2 class="mb-4 text-center">Find & Join Blood Donation Events</h2>
+        <h2 class="mb-4 text-center fw-bold text-danger">
+            <i class="bi bi-calendar-event"></i> Blood Donation Events
+        </h2>
 
         <!-- Search Bar -->
         <form method="GET" class="search-bar">
-            <div class="input-group">
-                <input type="text" class="form-control search-input" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search events by title or organizer...">
-                <button class="btn btn-primary btn-search px-4" type="submit">Search</button>
+            <div class="input-group shadow-sm">
+                <input type="text" class="form-control search-input" name="search"
+                    value="<?= htmlspecialchars($search) ?>"
+                    placeholder="Search events by title or organizer...">
+                <button class="btn btn-danger btn-search px-4" type="submit">
+                    <i class="bi bi-search"></i> Search
+                </button>
             </div>
         </form>
 
-        <!-- Upcoming / Nearby Events -->
-        <h4 class="mb-3">Nearby / Upcoming Events <?= $search ? "(Search: <i>" . htmlspecialchars($search) . "</i>)" : "" ?></h4>
+        <!-- Nearby / Upcoming Events -->
+        <h4 class="mb-3 text-danger">
+            <i class="bi bi-geo-alt-fill"></i> Nearby / Upcoming Events
+            <?= $search ? "(Search: <i>" . htmlspecialchars($search) . "</i>)" : "" ?>
+        </h4>
         <div class="row">
             <?php if (count($events) > 0): ?>
                 <?php foreach ($events as $event): ?>
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card event-card">
+                    <div class="col-md-6 col-lg-4 mb-4 text-center">
+                        <div class="card event-card h-100">
+                            <div class="event-header">
+                                <h5 class="mb-0"><?= htmlspecialchars($event['title']) ?></h5>
+                            </div>
                             <div class="card-body">
-                                <h5 class="card-title"><?= htmlspecialchars($event['title']) ?></h5>
-                                <p class="card-text mb-1"><strong>Organizer:</strong> <?= htmlspecialchars($event['organizer']) ?></p>
-                                <p class="card-text mb-1"><strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
+                                <p class="mb-1"><i class="bi bi-building"></i> <strong>Organizer:</strong> <?= htmlspecialchars($event['organizer']) ?></p>
+                                <p class="mb-1"><i class="bi bi-calendar2-week"></i> <strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
                                 <p class="countdown" data-event-date="<?= $event['date'] ?>"></p>
-                                <a href="view_event.php?id=<?= $event['event_id'] ?>" class="btn btn-outline-primary btn-sm mt-2">View Event</a>
+                                <a href="view_event.php?id=<?= $event['event_id'] ?>" class="btn btn-outline-danger btn-sm mt-2 rounded-pill">
+                                    <i class="bi bi-eye"></i> View Event
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -135,16 +151,20 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
         <hr>
 
         <!-- Participated Events -->
-        <h3 class="mt-5">Your Participated Events</h3>
+        <h3 class="mt-5 text-success"><i class="bi bi-check-circle"></i> Your Participated Events</h3>
         <div class="row">
             <?php if (count($participated) > 0): ?>
                 <?php foreach ($participated as $event): ?>
                     <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card event-card border-success">
+                        <div class="card event-card border-success h-100">
+                            <div class="event-header bg-success">
+                                <h5 class="mb-0 text-white"><?= htmlspecialchars($event['title']) ?></h5>
+                            </div>
                             <div class="card-body">
-                                <h5 class="card-title text-success">✅ <?= htmlspecialchars($event['title']) ?></h5>
-                                <p class="card-text"><strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
-                                <a href="view_event.php?id=<?= $event['event_id'] ?>" class="btn btn-success btn-sm">View Event</a>
+                                <p class="mb-1"><i class="bi bi-calendar2-week"></i> <strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
+                                <a href="view_event.php?id=<?= $event['event_id'] ?>" class="btn btn-success btn-sm rounded-pill">
+                                    <i class="bi bi-eye"></i> View Event
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -167,11 +187,13 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
             const diff = date - now;
             if (diff > 0) {
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                c.textContent = `Starts in ${days} day${days !== 1 ? 's' : ''}`;
+                c.textContent = `⏳ Starts in ${days} day${days !== 1 ? 's' : ''}`;
             } else if (diff > -86400000) {
-                c.textContent = "Ongoing Today";
+                c.textContent = "✅ Ongoing Today";
+                c.style.color = "green";
             } else {
-                c.textContent = "Completed";
+                c.textContent = "❌ Completed";
+                c.style.color = "gray";
             }
         });
     </script>
