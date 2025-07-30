@@ -38,7 +38,7 @@ $participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 <head>
     <meta charset="UTF-8">
-    <title>Event Participants</title>
+    <title>Events - Hospital Dashboard</title>
     <?php include '../includes/header.php'; ?>
     <style>
         .event-card {

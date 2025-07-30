@@ -90,7 +90,7 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
 
 <head>
     <meta charset="UTF-8">
-    <title>Hospital Events Dashboard</title>
+    <title>Events - Hospital Dashboard</title>
     <?php include '../includes/header.php'; ?>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
