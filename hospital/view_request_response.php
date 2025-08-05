@@ -110,11 +110,8 @@ $responses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     <?php include '../includes/header.php'; ?>
     <style>
         .event-card {
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            margin-bottom: 20px;
-            background: #fff;
+            background: linear-gradient(135deg, #fff, #f8f9fa);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .badge-lg {
@@ -140,42 +137,62 @@ $responses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         <?php endif; ?>
 
         <!-- Emergency Request Details -->
-        <div class="d-flex justify-content-center">
-            <div class="event-card text-center" style="max-width: 650px; width: 100%;">
-                <h3 class="text-danger fw-bold mb-3">
-                    <i class="bi bi-exclamation-triangle-fill"></i> Emergency Request
-                </h3>
-                <hr>
-                <p class="mb-2">
-                    <i class="bi bi-droplet-fill text-danger"></i>
-                    <strong>Blood Group:</strong>
-                    <span class="badge bg-danger badge-lg"><?= htmlspecialchars($request['blood_group']) ?></span>
-                </p>
-                <p class="mb-2">
-                    <i class="bi bi-card-text text-danger"></i>
-                    <strong>Message:</strong> <?= nl2br(htmlspecialchars($request['message'])) ?>
-                </p>
-                <p class="mb-2">
-                    <i class="bi bi-calendar-event text-danger"></i>
-                    <strong>Posted On:</strong> <?= date("M d, Y H:i", strtotime($request['created_at'])) ?>
-                </p>
-                <p class="mb-3">
-                    <i class="bi bi-flag text-danger"></i>
-                    <strong>Status:</strong>
-                    <?php if ($request['status'] === 'pending'): ?>
-                        <span class="badge bg-warning">Pending</span>
-                    <?php elseif ($request['status'] === 'fulfilled'): ?>
-                        <span class="badge bg-success">Fulfilled</span>
-                    <?php else: ?>
-                        <span class="badge bg-secondary">Cancelled</span>
-                    <?php endif; ?>
-                </p>
-                <hr>
-                <a href="emergency_requests.php" class="btn btn-outline-danger rounded-pill px-4">
-                    ← Back to Requests
-                </a>
+        <div class="container-fluid py-4">
+            <div class="event-card shadow-lg border-0 rounded-4 bg-light w-100 p-4">
+                <div class="text-center">
+                    <h2 class="text-danger fw-bold mb-3">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> Emergency Request
+                    </h2>
+                    <hr class="border-danger">
+
+                    <div class="row g-4 justify-content-center">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-white rounded shadow-sm border-start border-4 border-danger">
+                                <i class="bi bi-droplet-fill text-danger fs-4"></i>
+                                <p class="mb-1 fw-bold text-muted">Blood Group</p>
+                                <span class="badge bg-danger fs-6 px-3 py-2">
+                                    <?= htmlspecialchars($request['blood_group']) ?>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-white rounded shadow-sm border-start border-4 border-danger">
+                                <i class="bi bi-calendar-event text-danger fs-4"></i>
+                                <p class="mb-1 fw-bold text-muted">Posted On</p>
+                                <span class="text-dark"><?= date("M d, Y H:i", strtotime($request['created_at'])) ?></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-white rounded shadow-sm border-start border-4 border-danger">
+                                <i class="bi bi-flag text-danger fs-4"></i>
+                                <p class="mb-1 fw-bold text-muted">Status</p>
+                                <?php if ($request['status'] === 'pending'): ?>
+                                    <span class="badge bg-warning fs-6">Pending</span>
+                                <?php elseif ($request['status'] === 'fulfilled'): ?>
+                                    <span class="badge bg-success fs-6">Fulfilled</span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary fs-6">Cancelled</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="p-3 bg-white rounded shadow-sm border-start border-4 border-danger">
+                            <i class="bi bi-card-text text-danger fs-4"></i>
+                            <p class="mb-1 fw-bold text-muted">Message</p>
+                            <p class="text-dark"><?= nl2br(htmlspecialchars($request['message'])) ?></p>
+                        </div>
+                    </div>
+
+                    <a href="emergency_requests.php"
+                        class="btn btn-outline-danger rounded-pill px-4 mt-4 shadow-sm">
+                        ← Back to Requests
+                    </a>
+                </div>
             </div>
         </div>
+
 
         <!-- Responders Table -->
         <!-- <h4 class="mt-4">Responders</h4> -->
@@ -222,8 +239,8 @@ $responses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                             onclick="return confirm('Mark this donor as donated?');">
                                             <i class="bi bi-check-circle-fill"></i> Donate
                                         </a>
-                                    <?php elseif($res['user_id'] === $user_id) : ?>
-                                       <span class="badge bg-success">Donated</span>
+                                    <?php elseif ($res['user_id'] === $user_id) : ?>
+                                        <span class="badge bg-success">Donated</span>
                                     <?php else: ?>
                                         <span class="text-muted">-</span>
                                     <?php endif; ?>

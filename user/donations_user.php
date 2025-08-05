@@ -189,7 +189,7 @@ if ($last_donated) {
 
         <!-- Update Last Donated Date -->
         <div class="row mb-4 mt-5 justify-content-center">
-            <div class="col-md-6 col-sm-10">
+            <div class="col-md-12 col-sm-10">
                 <form method="POST" class="card shadow p-3 rounded-4 border">
                     <h5 class="mb-3 text-center">Update Last Donated Date</h5>
                     <div class="mb-3">

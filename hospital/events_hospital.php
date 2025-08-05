@@ -213,13 +213,30 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
                             <h5 class="card-title text-danger fw-bold">
                                 <?= htmlspecialchars($event['title']) ?>
                             </h5>
+
                             <p class="text-muted mb-2">
                                 <i class="bi bi-calendar-event"></i>
                                 <?= date("M d, Y", strtotime($event['date'])) ?>
                             </p>
+
+                            <!--  Event Status Badge -->
+                            <p class="mb-2">
+                                <i class="bi bi-flag text-danger"></i>
+                                <?php if ($event['status'] === 'upcoming'): ?>
+                                    <span class="badge bg-info">Upcoming</span>
+                                <?php elseif ($event['status'] === 'ongoing'): ?>
+                                    <span class="badge bg-warning text-dark">Ongoing</span>
+                                <?php elseif ($event['status'] === 'completed'): ?>
+                                    <span class="badge bg-success">Completed</span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">Cancelled</span>
+                                <?php endif; ?>
+                            </p>
+
                             <p class="card-text flex-grow-1">
                                 <?= nl2br(htmlspecialchars($event['description'])) ?>
                             </p>
+
                             <p class="text-muted mb-2">
                                 <i class="bi bi-geo-alt"></i>
                                 <?php
@@ -227,15 +244,22 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
                                 echo htmlspecialchars($short_location);
                                 ?>
                             </p>
+
                             <div class="d-flex justify-content-between mt-3">
                                 <button class="btn btn-outline-primary btn-sm px-3"
-                                    onclick="editEvent(<?= $event['event_id'] ?>,'<?= htmlspecialchars($event['title'], ENT_QUOTES) ?>','<?= $event['date'] ?>','<?= htmlspecialchars($event['description'], ENT_QUOTES) ?>','<?= htmlspecialchars($event['location'], ENT_QUOTES) ?>',<?= $event['latitude'] ?>,<?= $event['longitude'] ?>)">
+                                    onclick="editEvent(<?= $event['event_id'] ?>,
+                                '<?= htmlspecialchars($event['title'], ENT_QUOTES) ?>',
+                                '<?= $event['date'] ?>',
+                                '<?= htmlspecialchars($event['description'], ENT_QUOTES) ?>',
+                                '<?= htmlspecialchars($event['location'], ENT_QUOTES) ?>',
+                                <?= $event['latitude'] ?>,
+                                <?= $event['longitude'] ?>)">
                                     <i class="bi bi-pencil-square"></i> Update
                                 </button>
 
                                 <a href="event_participants_hospital.php?event_id=<?= $event['event_id'] ?>"
                                     class="btn btn-outline-success btn-sm px-3">
-                                    <i class="bi bi-people"></i> Participants
+                                    <i class="bi bi-people"></i> View
                                 </a>
 
                                 <a href="?delete_id=<?= $event['event_id'] ?>"
@@ -244,12 +268,12 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
                                     <i class="bi bi-trash"></i> Delete
                                 </a>
                             </div>
-
                         </div>
                     </div>
                 </div>
             <?php endforeach; ?>
         </div>
+
 
         <!-- Completed Events -->
         <h4 class="section-title">Completed Events</h4>

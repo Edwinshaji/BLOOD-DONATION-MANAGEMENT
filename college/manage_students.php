@@ -38,9 +38,9 @@ if (!empty($search)) {
                             FROM users u
                             LEFT JOIN donors d ON u.user_id = d.user_id
                             WHERE u.institution_id=? AND u.role='student'
-                            AND (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)
+                            AND (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR d.blood_group LIKE ?)
                             ORDER BY u.name ASC");
-    $stmt->bind_param("isss", $institution_id, $search_query, $search_query, $search_query);
+    $stmt->bind_param("issss", $institution_id, $search_query, $search_query, $search_query,$search_query);
 } else {
     $stmt = $conn->prepare("SELECT u.user_id, u.name, u.email, u.phone, u.status, d.blood_group
                             FROM users u
@@ -104,7 +104,7 @@ $students = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         <!-- Search Bar -->
         <form method="GET" class="d-flex mb-4">
             <input type="text" name="search" class="form-control me-1"
-                placeholder="Search by name, email, phone"
+                placeholder="Search by name, email, phone or blood group ..."
                 value="<?= htmlspecialchars($search) ?>">
             <button class="btn btn-danger" type="submit"><i class="bi bi-search"></i> Search</button>
         </form>

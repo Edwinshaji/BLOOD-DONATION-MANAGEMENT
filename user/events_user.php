@@ -8,17 +8,18 @@ $user_college = $_SESSION['institution_id'] ?? null;
 
 $search = $_GET['search'] ?? '';
 
-// Fetch all events
+// ✅ Fetch only upcoming or ongoing events
 $query = "
     SELECT e.*, i.name AS organizer
     FROM events e
     JOIN institutions i ON e.institution_id = i.institution_id
-    WHERE (e.institution_id = ? 
+    WHERE (e.status IN ('upcoming', 'ongoing'))
+      AND (e.institution_id = ? 
         OR ST_Distance_Sphere(
             POINT(i.latitude, i.longitude),
             (SELECT POINT(d.latitude, d.longitude) FROM donors d WHERE d.user_id = ?)
         ) < 30000)
-        AND (e.title LIKE CONCAT('%', ?, '%') OR i.name LIKE CONCAT('%', ?, '%'))
+      AND (e.title LIKE CONCAT('%', ?, '%') OR i.name LIKE CONCAT('%', ?, '%'))
     ORDER BY e.date ASC
 ";
 
@@ -28,7 +29,7 @@ $stmt->execute();
 $result = $stmt->get_result();
 $events = $result->fetch_all(MYSQLI_ASSOC);
 
-// Fetch participated events
+// ✅ Fetch participated events
 $part_stmt = $conn->prepare("
     SELECT e.*, i.name AS organizer
     FROM events e
@@ -42,7 +43,6 @@ $part_stmt->execute();
 $part_result = $part_stmt->get_result();
 $participated = $part_result->fetch_all(MYSQLI_ASSOC);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -71,30 +71,54 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
             padding: 14px;
         }
 
-        .event-badge {
-            font-size: 0.8rem;
+        .event-body {
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-view {
+            padding: 8px 20px;
             font-weight: 600;
+            box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);
+        }
+
+        .event-location {
+            font-size: 0.9rem;
+            color: #6c757d;
         }
 
         .countdown {
-            font-size: 14px;
-            color: #d63384;
+            font-size: 0.9rem;
             font-weight: 500;
         }
 
-        .search-bar {
-            max-width: 700px;
-            margin: 20px auto 40px;
+        .btn-view:hover {
+            background-color: #dc3545;
+            color: #fff;
         }
 
-        .search-input {
-            border-radius: 30px !important;
-            padding: 12px 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        .participated-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 50px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
         }
 
-        .btn-search {
-            border-radius: 30px;
+        .participated-header {
+            background: linear-gradient(135deg, #198754, #20c997);
+            color: white;
+            padding: 14px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .participated-header.bg-danger {
+            background: linear-gradient(135deg, #dc3545, #ff6b81);
         }
     </style>
 </head>
@@ -103,12 +127,9 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
     <?php include 'user_layout_start.php' ?>
 
     <div class="container my-4">
-        <h2 class="mb-4 text-center fw-bold text-danger">
-            <i class="bi bi-calendar-event"></i> Blood Donation Events
-        </h2>
 
-        <!-- Search Bar -->
-        <form method="GET" class="search-bar">
+        <!-- 🔍 Search Bar -->
+        <form method="GET" class="search-bar mb-5">
             <div class="input-group shadow-sm">
                 <input type="text" class="form-control search-input" name="search"
                     value="<?= htmlspecialchars($search) ?>"
@@ -119,84 +140,81 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
             </div>
         </form>
 
-        <!-- Nearby / Upcoming Events -->
-        <h4 class="mb-3 text-danger">
-            <i class="bi bi-geo-alt-fill"></i> Nearby / Upcoming Events
-            <?= $search ? "(Search: <i>" . htmlspecialchars($search) . "</i>)" : "" ?>
-        </h4>
-        <div class="row">
-            <?php if (count($events) > 0): ?>
-                <?php foreach ($events as $event): ?>
-                    <div class="col-md-6 col-lg-4 mb-4 text-center">
-                        <div class="card event-card h-100">
-                            <div class="event-header">
-                                <h5 class="mb-0"><?= htmlspecialchars($event['title']) ?></h5>
+        <!-- ✅ Upcoming / Ongoing Events Section -->
+        <div class="participated-section">
+            <div class="participated-header bg-danger">
+                <h3 class="mb-0"><i class="bi bi-calendar-event"></i> Upcoming & Ongoing Events</h3>
+            </div>
+            <div class="row justify-content-center">
+                <?php if (count($events) > 0): ?>
+                    <?php foreach ($events as $event): ?>
+                        <?php if (in_array($event['status'], ['upcoming', 'ongoing'])): ?>
+                            <?php
+                            $locationParts = explode(',', $event['location']);
+                            $short_location = implode(', ', array_slice($locationParts, 0, 2));
+                            ?>
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card event-card h-100 text-center">
+                                    <div class="event-header bg-danger">
+                                        <h5 class="mb-0 text-white"><?= htmlspecialchars($event['title']) ?></h5>
+                                    </div>
+                                    <div class="event-body">
+                                        <p><i class="bi bi-building"></i> <strong>Organizer:</strong> <?= htmlspecialchars($event['organizer']) ?></p>
+                                        <p><i class="bi bi-calendar2-week"></i> <strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
+                                        <p class="event-location"><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($short_location) ?></p>
+                                        <a href="view_event.php?id=<?= $event['event_id'] ?>"
+                                            class="btn btn-outline-danger btn-view rounded-pill mt-2">
+                                            <i class="bi bi-eye"></i> View Event
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="card-body">
-                                <p class="mb-1"><i class="bi bi-building"></i> <strong>Organizer:</strong> <?= htmlspecialchars($event['organizer']) ?></p>
-                                <p class="mb-1"><i class="bi bi-calendar2-week"></i> <strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
-                                <p class="countdown" data-event-date="<?= $event['date'] ?>"></p>
-                                <a href="view_event.php?id=<?= $event['event_id'] ?>" class="btn btn-outline-danger btn-sm mt-2 rounded-pill">
-                                    <i class="bi bi-eye"></i> View Event
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <p class="text-muted px-3">No events found for your search.</p>
-            <?php endif; ?>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p class="text-muted text-center">No upcoming or ongoing events available.</p>
+                <?php endif; ?>
+            </div>
         </div>
 
-        <hr>
-
-        <!-- Participated Events -->
-        <h3 class="mt-5 text-success"><i class="bi bi-check-circle"></i> Your Participated Events</h3>
-        <div class="row">
-            <?php if (count($participated) > 0): ?>
-                <?php foreach ($participated as $event): ?>
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card event-card border-success h-100">
-                            <div class="event-header bg-success">
-                                <h5 class="mb-0 text-white"><?= htmlspecialchars($event['title']) ?></h5>
-                            </div>
-                            <div class="card-body">
-                                <p class="mb-1"><i class="bi bi-calendar2-week"></i> <strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
-                                <a href="view_event.php?id=<?= $event['event_id'] ?>" class="btn btn-success btn-sm rounded-pill">
-                                    <i class="bi bi-eye"></i> View Event
-                                </a>
+        <!-- ✅ Participated Events Section -->
+        <div class="participated-section">
+            <div class="participated-header">
+                <h3 class="mb-0"><i class="bi bi-check-circle"></i> Your Participated Events</h3>
+            </div>
+            <div class="row justify-content-center">
+                <?php if (count($participated) > 0): ?>
+                    <?php foreach ($participated as $event): ?>
+                        <?php
+                            $locationParts = explode(',', $event['location']);
+                            $short_location = implode(', ', array_slice($locationParts, 0, 2));
+                            ?>
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card event-card border-success h-100">
+                                <div class="event-header bg-success">
+                                    <h5 class="mb-0"><?= htmlspecialchars($event['title']) ?></h5>
+                                </div>
+                                <div class="event-body">
+                                    <p><i class="bi bi-building"></i> <strong>Organizer:</strong> <?= htmlspecialchars($event['organizer']) ?></p>
+                                    <p><i class="bi bi-calendar2-week"></i> <strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
+                                    <p class="event-location"><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($short_location) ?></p>
+                                    <a href="view_event.php?id=<?= $event['event_id'] ?>"
+                                        class="btn btn-success btn-view mt-2">
+                                        <i class="bi bi-eye"></i> View Event
+                                    </a>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <p class="text-muted px-3">You haven't participated in any events yet.</p>
-            <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p class="text-muted px-3">You haven't participated in any events yet.</p>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
     <?php include 'user_layout_end.php' ?>
     <?php include '../includes/footer.php' ?>
-
-    <script>
-        // Countdown Timer
-        const countdowns = document.querySelectorAll(".countdown");
-        countdowns.forEach(c => {
-            const date = new Date(c.dataset.eventDate);
-            const now = new Date();
-            const diff = date - now;
-            if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                c.textContent = `⏳ Starts in ${days} day${days !== 1 ? 's' : ''}`;
-            } else if (diff > -86400000) {
-                c.textContent = "✅ Ongoing Today";
-                c.style.color = "green";
-            } else {
-                c.textContent = "❌ Completed";
-                c.style.color = "gray";
-            }
-        });
-    </script>
 </body>
 
 </html>
