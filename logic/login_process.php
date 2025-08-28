@@ -18,7 +18,7 @@ $stmt->bind_param("s", $email);
 $stmt->execute();
 $stmt->store_result();
 if ($stmt->num_rows === 1) {
-    $stmt->bind_result($admin_id, $admin_name,$admin_email, $hashed_password);
+    $stmt->bind_result($admin_id, $admin_name, $admin_email, $hashed_password);
     $stmt->fetch();
     if (password_verify($password, $hashed_password)) {
         $_SESSION['admin_id'] = $admin_id;
@@ -60,19 +60,30 @@ if ($role === 'user' || $role === 'student') {
 
 // 3. Hospital/College Login
 if ($role === 'hospital' || $role === 'college') {
-    $stmt = $conn->prepare("SELECT institution_id, name, type, email, password FROM institutions WHERE email = ? AND type = ?");
+    $stmt = $conn->prepare("SELECT institution_id, name, type, email, password, status 
+                            FROM institutions 
+                            WHERE email = ? AND type = ?");
     $stmt->bind_param("ss", $email, $role);
     $stmt->execute();
     $stmt->store_result();
+
     if ($stmt->num_rows === 1) {
-        $stmt->bind_result($institution_id, $name, $type, $inst_email, $hashed_password);
+        $stmt->bind_result($institution_id, $name, $type, $inst_email, $hashed_password, $status);
         $stmt->fetch();
+
+        // ✅ Check account status
+        if ($status !== 'approved') {
+            echo "<script>alert('Your institution account is $status. Please contact the administrator.');window.location.href='../login.php';</script>";
+            exit;
+        }
+
         if (password_verify($password, $hashed_password)) {
-            $_SESSION['institution_id'] = $institution_id;
+            $_SESSION['institution_id']   = $institution_id;
             $_SESSION['institution_name'] = $name;
             $_SESSION['institution_type'] = $type;
             $_SESSION['institution_email'] = $inst_email;
-            $_SESSION['role'] = $type;
+            $_SESSION['role']             = $type;
+
             if ($type === 'hospital') {
                 header("Location: ../hospital/index_hospital.php");
             } else {
@@ -86,6 +97,6 @@ if ($role === 'hospital' || $role === 'college') {
     exit;
 }
 
+
 echo "<script>alert('Invalid role selected or credentials');window.location.href='../login.php';</script>";
 exit;
-?>
