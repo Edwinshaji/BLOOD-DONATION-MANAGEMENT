@@ -23,7 +23,7 @@ if (!$request) {
     exit;
 }
 
-/* ✅ Mark donor as donated */
+/*  Mark donor as donated */
 if (isset($_GET['donate_id'])) {
     $response_id = intval($_GET['donate_id']);
 
@@ -54,7 +54,7 @@ if (isset($_GET['donate_id'])) {
             $lat = $donor_data['latitude'];
             $lng = $donor_data['longitude'];
 
-            // 🔹 Reverse geocode hospital lat/lng
+            //  Reverse geocode hospital lat/lng
             $location_name = "Unknown Location";
             if (!empty($lat) && !empty($lng)) {
                 $url = "https://nominatim.openstreetmap.org/reverse?format=json&lat={$lat}&lon={$lng}&zoom=14&addressdetails=1";
@@ -69,7 +69,7 @@ if (isset($_GET['donate_id'])) {
                 }
             }
 
-            // ✅ Insert donation with request_id
+            //  Insert donation with request_id
             $stmt = $conn->prepare("
                 INSERT INTO donations (donor_id, request_id, event_id, date, location, verified_by)
                 VALUES (?, ?, NULL, CURDATE(), ?, ?)
@@ -78,7 +78,7 @@ if (isset($_GET['donate_id'])) {
             $stmt->execute();
 
             // Update donor's last_donated
-            $stmt = $conn->prepare("UPDATE donors SET last_donated = CURDATE() WHERE donor_id=?");
+            $stmt = $conn->prepare("UPDATE donors SET last_donated = CURDATE() , is_available = 0 WHERE donor_id=?");
             $stmt->bind_param("i", $donor_id);
             $stmt->execute();
 
@@ -101,7 +101,7 @@ if (isset($_GET['donate_id'])) {
     exit;
 }
 
-/* ❌ Reject donor → reset donation if exists */
+/*  Reject donor → reset donation if exists */
 if (isset($_GET['reject_id'])) {
     $response_id = intval($_GET['reject_id']);
 
@@ -136,7 +136,7 @@ if (isset($_GET['reject_id'])) {
     exit;
 }
 
-/* 🔹 Fetch all responses */
+/*  Fetch all responses */
 $stmt = $conn->prepare("SELECT rr.response_id, rr.user_id, rr.status, rr.responded_at, 
     u.name, u.email, u.phone, u.role
     FROM request_responses rr
@@ -146,7 +146,7 @@ $stmt->bind_param("i", $request_id);
 $stmt->execute();
 $responses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-/* 🔹 Find which responders already donated (by request_id) */
+/*  Find which responders already donated (by request_id) */
 $stmt = $conn->prepare("
     SELECT d.donation_id, d.donor_id, rr.response_id
     FROM donations d

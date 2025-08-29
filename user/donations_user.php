@@ -22,17 +22,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $today = isset($_POST['donated_today']) ? date("Y-m-d") : ($_POST['last_donated'] ?? null);
 
     if ($today) {
-        $stmt = $conn->prepare("UPDATE donors SET last_donated = ? WHERE donor_id = ?");
+        // Update last_donated and set is_available = 0 (since just donated)
+        $stmt = $conn->prepare("UPDATE donors SET last_donated = ?, is_available = 0 WHERE donor_id = ?");
         $stmt->bind_param("si", $today, $donor_id);
+
         if ($stmt->execute()) {
-            $_SESSION['success'] = "Last donated date updated!";
+            $_SESSION['success'] = "Donation date updated successfully! Donor is now marked as unavailable.";
         } else {
             $_SESSION['error'] = "Failed to update donation date.";
         }
+
         header("Location: donations_user.php");
         exit;
     }
 }
+
+// Handle manual availability update
+if (isset($_POST['set_available'])) {
+    $today = date("Y-m-d");
+
+    if ($last_donated) {
+        if (strtolower($gender) === 'female') {
+            $next_eligible_date = date("Y-m-d", strtotime($last_donated . " +120 days"));
+        } else {
+            $next_eligible_date = date("Y-m-d", strtotime($last_donated . " +90 days"));
+        }
+    }
+
+    if (!$last_donated || $today >= $next_eligible_date) {
+        $stmt = $conn->prepare("UPDATE donors SET is_available = 1 WHERE donor_id = ?");
+        $stmt->bind_param("i", $donor_id);
+        if ($stmt->execute()) {
+            $_SESSION['success'] = "You are now marked as available!";
+        } else {
+            $_SESSION['error'] = "Failed to update availability.";
+        }
+    } else {
+        $_SESSION['error'] = "You are not eligible yet to mark as available.";
+    }
+    header("Location: donations_user.php");
+    exit;
+}
+
+if (isset($_POST['set_unavailable'])) {
+    $stmt = $conn->prepare("UPDATE donors SET is_available = 0 WHERE donor_id = ?");
+    $stmt->bind_param("i", $donor_id);
+    if ($stmt->execute()) {
+        $_SESSION['success'] = "You are now marked as unavailable.";
+    } else {
+        $_SESSION['error'] = "Failed to update availability.";
+    }
+    header("Location: donations_user.php");
+    exit;
+}
+
 
 // Get total donations
 $count_stmt = $conn->prepare("SELECT COUNT(*) FROM donations WHERE donor_id = ?");
@@ -53,13 +96,14 @@ while ($row = $result->fetch_assoc()) {
 }
 $donation_stmt->close();
 
-// Get user gender
-$gender_stmt = $conn->prepare("SELECT gender FROM donors WHERE donor_id = ?");
+// Get donor gender & availability
+$gender_stmt = $conn->prepare("SELECT gender, is_available FROM donors WHERE donor_id = ?");
 $gender_stmt->bind_param("i", $donor_id);
 $gender_stmt->execute();
-$gender_stmt->bind_result($gender);
+$gender_stmt->bind_result($gender, $is_available);
 $gender_stmt->fetch();
 $gender_stmt->close();
+
 
 // Calculate next eligible donation date based on gender
 if ($last_donated) {
@@ -160,11 +204,9 @@ if ($last_donated) {
             <table class="table table-bordered table-striped table-hover align-middle text-center">
                 <thead class="table-dark">
                     <tr>
-                        <th>#</th>
-                        <th>Event ID</th>
+                        <th>SI No.</th>
                         <th>Date</th>
                         <th>Location</th>
-                        <th>Verified By</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -172,10 +214,8 @@ if ($last_donated) {
                         <?php foreach ($donations as $i => $donation): ?>
                             <tr>
                                 <td><?= $i + 1 ?></td>
-                                <td><?= $donation['event_id'] ?></td>
                                 <td><?= date("d M Y", strtotime($donation['date'])) ?></td>
                                 <td><?= htmlspecialchars($donation['location']) ?></td>
-                                <td><?= htmlspecialchars($donation['verified_by']) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -189,8 +229,8 @@ if ($last_donated) {
 
         <!-- Update Last Donated Date -->
         <div class="row mb-4 mt-5 justify-content-center">
-            <div class="col-md-12 col-sm-10">
-                <form method="POST" class="card shadow p-3 rounded-4 border">
+            <div class="col-md-6 col-sm-10">
+                <form method="POST" class="card shadow p-3 rounded-4 border" style="height: 200px;">
                     <h5 class="mb-3 text-center">Update Last Donated Date</h5>
                     <div class="mb-3">
                         <label for="last_donated" class="form-label">Choose Date</label>
@@ -202,7 +242,36 @@ if ($last_donated) {
                     </div>
                 </form>
             </div>
+
+            <div class="col-md-6 col-sm-10">
+                <form method="POST" class="card shadow p-3 rounded-4 border" style="height: 200px;">
+                    <h5 class="mb-3 text-center">Availability</h5>
+
+                    <?php if ($is_available == 0): ?>
+                        <!-- Show Set Available -->
+                        <button type="submit" name="set_available" class="btn btn-success btn-md m-2"
+                            <?= (!$last_donated || date("Y-m-d") >= $next_eligible_date) ? '' : 'disabled' ?>>
+                            Set Available
+                        </button>
+
+                        <?php if ($last_donated && date("Y-m-d") < $next_eligible_date): ?>
+                            <p class="text-danger small mt-2 text-center">
+                                You will be eligible to donate again after <?= date("d M Y", strtotime($next_eligible_date)) ?>.
+                            </p>
+                        <?php endif; ?>
+
+                    <?php else: ?>
+                        <!-- Show Set Unavailable -->
+                        <button type="submit" name="set_unavailable" class="btn btn-danger btn-md m-2">
+                            Set Unavailable
+                        </button>
+                    <?php endif; ?>
+                </form>
+            </div>
+
+
         </div>
+    </div>
 
 
     </div>

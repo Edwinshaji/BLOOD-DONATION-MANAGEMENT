@@ -23,7 +23,7 @@ if (!$event) {
     exit;
 }
 
-/* ✅ Handle Mark as Attended */
+/* Handle Mark as Attended */
 if (isset($_GET['attend_id'])) {
     $participation_id = intval($_GET['attend_id']);
 
@@ -41,7 +41,7 @@ if (isset($_GET['attend_id'])) {
     exit;
 }
 
-/* ✅ Handle Mark as Donated */
+/* Handle Mark as Donated */
 if (isset($_GET['donate_id'])) {
     $participation_id = intval($_GET['donate_id']);
 
@@ -54,7 +54,7 @@ if (isset($_GET['donate_id'])) {
     $participant = $stmt->get_result()->fetch_assoc();
 
     if ($participant && $participant['attended'] == 1) {
-        // ✅ Get donor_id from donors table
+        // Get donor_id from donors table
         $stmt = $conn->prepare("SELECT donor_id FROM donors WHERE user_id = ?");
         $stmt->bind_param("i", $participant['user_id']);
         $stmt->execute();
@@ -63,12 +63,12 @@ if (isset($_GET['donate_id'])) {
         if ($donor_row) {
             $donor_id = $donor_row['donor_id'];
 
-            // ✅ Update as donated in participation
+            // Update as donated in participation
             $stmt = $conn->prepare("UPDATE event_participation SET donated = 1 WHERE participation_id = ?");
             $stmt->bind_param("i", $participation_id);
             $stmt->execute();
 
-            // ✅ Fetch event details
+            // Fetch event details
             $event_query = $conn->prepare("SELECT location FROM events WHERE event_id = ?");
             $event_query->bind_param("i", $event_id);
             $event_query->execute();
@@ -76,9 +76,9 @@ if (isset($_GET['donate_id'])) {
 
             if ($event_data) {
                 $location    = $event_data['location'];
-                $verified_by = $institution_id; // ✅ institution_id for foreign key
+                $verified_by = $institution_id; // institution_id for foreign key
 
-                // ✅ Insert donation record
+                // Insert donation record
                 $stmt = $conn->prepare("
                     INSERT INTO donations (donor_id, event_id, date, location, verified_by)
                     VALUES (?, ?, NOW(), ?, ?)
@@ -86,8 +86,8 @@ if (isset($_GET['donate_id'])) {
                 $stmt->bind_param("iisi", $donor_id, $event_id, $location, $verified_by);
 
                 if ($stmt->execute()) {
-                    // ✅ Update donor last_donated date
-                    $stmt = $conn->prepare("UPDATE donors SET last_donated = CURDATE() WHERE donor_id = ?");
+                    // Update donor last_donated date
+                    $stmt = $conn->prepare("UPDATE donors SET last_donated = CURDATE() , is_available = 0 WHERE donor_id = ?");
                     $stmt->bind_param("i", $donor_id);
                     $stmt->execute();
 

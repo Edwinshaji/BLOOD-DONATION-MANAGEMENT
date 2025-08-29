@@ -74,19 +74,20 @@ foreach ($live_participants_res as $row) {
     $participants_by_event[$row['event_id']]['participants'][] = $row;
 }
 
-// ✅ Fetch completed events from the DB
-$completed_events_res = [];
-$stmt = $conn->prepare("
-    SELECT e.event_id, e.title, e.date,
-           (SELECT COUNT(*) FROM event_participation p WHERE p.event_id = e.event_id) AS total_participants,
-           (SELECT COUNT(*) FROM donations d WHERE d.event_id = e.event_id) AS total_donations
+// Completed events (based on status column)
+$completed_events = $conn->prepare("
+    SELECT e.*, 
+           COUNT(p.participation_id) AS total_participants, 
+           SUM(p.donated) AS total_donations 
     FROM events e
-    WHERE e.status = 'completed'
+    LEFT JOIN event_participation p ON e.event_id = p.event_id
+    WHERE e.institution_id = ? AND e.status = 'completed'
+    GROUP BY e.event_id 
     ORDER BY e.date DESC
 ");
-$stmt->execute();
-$result = $stmt->get_result();
-$completed_events_res = $result->fetch_all(MYSQLI_ASSOC);
+$completed_events->bind_param("i", $institution_id);
+$completed_events->execute();
+$completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC);
 
 ?>
 

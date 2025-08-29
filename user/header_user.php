@@ -74,17 +74,17 @@ $userName = $_SESSION['user_name'] ?? 'User';
                 <a class="nav-link <?= ($current_page == 'index_user.php') ? 'active' : '' ?>" href="index_user.php">Home</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link <?= ($current_page == 'user_events.php') ? 'active' : '' ?>" href="events_user.php">Events</a>
+                <a class="nav-link <?= ($current_page == 'events_user.php') ? 'active' : '' ?>" href="events_user.php">Events</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link <?= ($current_page == 'user_donations.php') ? 'active' : '' ?>" href="donations_user.php">Donations</a>
+                <a class="nav-link <?= ($current_page == 'emergency_requests.php') ? 'active' : '' ?>" href="emergency_requests.php">Emergency</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link <?= ($current_page == 'user_account.php') ? 'active' : '' ?>" href="account_user.php">Account</a>
+                <a class="nav-link <?= ($current_page == 'donations_user.php') ? 'active' : '' ?>" href="donations_user.php">Donations</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="../logout.php">Logout</a>
+                <a class="nav-link <?= ($current_page == 'account_user.php') ? 'active' : '' ?>" href="account_user.php">Account</a>
             </li>
-        </ul>
+       </ul>
     </div>
 </nav>

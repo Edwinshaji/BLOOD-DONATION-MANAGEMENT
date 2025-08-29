@@ -5,6 +5,17 @@
 
 
 <script>
+        setTimeout(() => {
+            const flashMsg = document.querySelector('.flash-msg');
+            if (flashMsg) {
+                flashMsg.style.transition = "opacity 0.5s ease";
+                flashMsg.style.opacity = "0";
+                setTimeout(() => flashMsg.remove(), 500); // remove after fade-out
+            }
+        }, 3000); // 3000 ms = 3 sec
+    </script>
+
+<script>
     window.addEventListener('pageshow', function(event) {
             if (event.persisted) {
                 window.location.reload();

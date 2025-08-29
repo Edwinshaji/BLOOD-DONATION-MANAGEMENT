@@ -87,7 +87,7 @@ if (isset($_GET['donate_id'])) {
 
                 if ($stmt->execute()) {
                     // Update donor last_donated date
-                    $stmt = $conn->prepare("UPDATE donors SET last_donated = CURDATE() WHERE donor_id = ?");
+                    $stmt = $conn->prepare("UPDATE donors SET last_donated = CURDATE() , is_available = 0 WHERE donor_id = ?");
                     $stmt->bind_param("i", $donor_id);
                     $stmt->execute();
 

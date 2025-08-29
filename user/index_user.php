@@ -30,65 +30,18 @@ if (isset($_GET['request_id'], $_GET['action']) && in_array($_GET['action'], ['a
         $_SESSION['error'] = "Error updating your response.";
     }
 
-    header("Location: index_user.php"); // redirect to avoid form resubmission
+    header("Location: index_user.php");
     exit;
-}
-
-// ---------------- Donor Search ---------------- //
-$donors = [];
-$search_mode = false;
-
-if (isset($_GET['search']) && !empty($_GET['blood_group'])) {
-    $search_mode = true;
-    $blood_group = $_GET['blood_group'];
-    $latitude = $_GET['latitude'] ?? null;
-    $longitude = $_GET['longitude'] ?? null;
-
-    if (!empty($latitude) && !empty($longitude)) {
-        $query = "
-            SELECT u.user_id, u.name, u.phone, d.blood_group, i.address AS location,
-                   ST_Distance_Sphere(POINT(i.longitude, i.latitude), POINT(?, ?)) AS distance
-            FROM donors d
-            JOIN users u ON d.user_id = u.user_id
-            JOIN institutions i ON u.institution_id = i.institution_id
-            WHERE d.is_available = 1
-              AND d.blood_group = ?
-            HAVING distance < 30000
-            ORDER BY distance ASC
-            LIMIT 10
-        ";
-        $stmt = $conn->prepare($query);
-        $stmt->bind_param("dds", $longitude, $latitude, $blood_group);
-        $stmt->execute();
-        $donors = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    }
-
-    if (count($donors) === 0) {
-        $fallback_query = "
-            SELECT u.user_id, u.name, u.phone, d.blood_group, i.address AS location
-            FROM donors d
-            JOIN users u ON d.user_id = u.user_id
-            JOIN institutions i ON u.institution_id = i.institution_id
-            WHERE d.is_available = 1
-              AND d.blood_group = ?
-            LIMIT 10
-        ";
-        $stmt = $conn->prepare($fallback_query);
-        $stmt->bind_param("s", $blood_group);
-        $stmt->execute();
-        $donors = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    }
 }
 
 // ---------------- Emergency Requests ---------------- //
 $notifications = [];
 $notif_query = "
-    SELECT r.request_id, r.blood_group, r.message, r.created_at, 
+    SELECT r.request_id, r.blood_group, r.message, r.created_at, r.units_needed, r.units_donated,
            i.name AS hospital_name, i.address
     FROM emergency_requests r
     JOIN institutions i ON r.institution_id = i.institution_id
     WHERE r.status = 'pending'
-      AND r.created_at >= NOW() - INTERVAL 1 DAY
       AND EXISTS (
           SELECT 1 
           FROM donors d
@@ -104,19 +57,39 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $notifications = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// ---------------- Upcoming Events ---------------- //
-$today = date("Y-m-d");
-$events_stmt = $conn->prepare("
-    SELECT e.*, i.name AS organizer 
-    FROM events e 
-    JOIN institutions i ON e.institution_id = i.institution_id
-    WHERE e.date >= ? 
-    ORDER BY e.date ASC 
-    LIMIT 3
-");
-$events_stmt->bind_param("s", $today);
-$events_stmt->execute();
-$events = $events_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+// ---------------- User Stats ---------------- //
+$total_donations = 0;
+$days_remaining = "N/A";
+$next_possible_date = "N/A";
+$donor_status = "Not Registered";
+
+// Total donations
+$stmt = $conn->prepare("SELECT COUNT(*) FROM donations d JOIN donors dn ON d.donor_id = dn.donor_id WHERE dn.user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$stmt->bind_result($total_donations);
+$stmt->fetch();
+$stmt->close();
+
+// Last donated
+$stmt = $conn->prepare("SELECT last_donated FROM donors WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$stmt->bind_result($last_donated);
+
+if ($stmt->fetch() && $last_donated) {
+    $next_date = date('Y-m-d', strtotime($last_donated . ' +90 days'));
+    $today = date('Y-m-d');
+
+    // Difference in days (integer only)
+    $diff = floor((strtotime($next_date) - strtotime($today)) / (60 * 60 * 24));
+
+    $days_remaining = $diff > 0 ? $diff . " days" : "Eligible Now";
+    $next_possible_date = $next_date;
+    $donor_status = "Active Donor";
+}
+
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -130,40 +103,104 @@ $events = $events_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             background: #f9f9fb;
         }
 
-        .search-bar {
-            background: #fff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
+        .section-title {
+            font-weight: 700;
+            color: #dc3545;
+            margin-bottom: 1.5rem;
+            text-align: center;
         }
 
-        .dashboard-card {
-            border-radius: 16px;
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-            background: #fff;
-            padding: 20px;
-        }
-
-        .donor-card,
-        .event-card,
         .notif-card {
             border-radius: 14px;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
             transition: transform .2s;
         }
 
-        .donor-card:hover,
-        .event-card:hover,
         .notif-card:hover {
-            transform: scale(1.03);
+            transform: scale(1.02);
         }
 
-        .section-title {
-            font-weight: 700;
-            color: #dc3545;
-            margin-bottom: 1.5rem;
+        .stats-card {
+            border-radius: 14px;
+            padding: 20px;
             text-align: center;
+            color: #fff;
+        }
+
+        /* Search bar */
+        .search-container {
+            max-width: 100%;
+            margin: 20px auto;
+            position: relative;
+        }
+
+        .search-input {
+            border-radius: 30px;
+            padding-left: 20px;
+            font-size: 1rem;
+        }
+
+        .dropdown-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .dropdown-results table {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .dropdown-results td,
+        .dropdown-results th {
+            padding: 8px;
+        }
+
+        /* Emergency Request Cards */
+        .emergency-card {
+            border-radius: 16px;
+            border: 2px solid #dc3545;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease-in-out;
+            position: relative;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .emergency-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+        }
+
+        .emergency-card h5 {
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #dc3545;
+        }
+
+        .emergency-info p {
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+        }
+
+        .emergency-info i {
+            color: #dc3545;
+            margin-right: 6px;
+        }
+
+        .status-ribbon {
+            position: absolute;
+            top: 15px;
+            right: 15px;
         }
     </style>
 </head>
@@ -174,142 +211,166 @@ $events = $events_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
         <!-- Flash Messages -->
         <?php if (isset($_SESSION['success'])): ?>
-            <div class="alert alert-success"><?= $_SESSION['success'];
-                                                unset($_SESSION['success']); ?></div>
+            <div class="alert alert-success flash-msg">
+                <?= $_SESSION['success']; ?>
+            </div>
+            <?php unset($_SESSION['success']); ?>
         <?php elseif (isset($_SESSION['error'])): ?>
-            <div class="alert alert-danger"><?= $_SESSION['error'];
-                                            unset($_SESSION['error']); ?></div>
+            <div class="alert alert-danger flash-msg">
+                <?= $_SESSION['error']; ?>
+            </div>
+            <?php unset($_SESSION['error']); ?>
         <?php endif; ?>
 
         <!-- 🔍 Search Bar -->
-        <div class="search-bar">
-            <form method="GET" class="row g-3" onsubmit="return setLocation();">
-                <div class="col-md-6 mx-auto">
-                    <select name="blood_group" class="form-select form-select-lg" required>
-                        <option value="">Select Blood Group</option>
-                        <?php foreach (['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as $bg): ?>
-                            <option value="<?= $bg ?>" <?= ($_GET['blood_group'] ?? '') === $bg ? 'selected' : '' ?>><?= $bg ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" id="latitude" name="latitude">
-                    <input type="hidden" id="longitude" name="longitude">
-                </div>
-                <div class="col-md-4 mx-auto">
-                    <button type="submit" name="search" value="1" class="btn btn-danger btn-lg w-100">Search Donors</button>
-                </div>
-            </form>
+        <div class="search-container">
+            <input type="text" id="searchDonor" class="form-control search-input" placeholder="Search donors by blood group...">
+            <div id="searchResults" class="dropdown-results d-none"></div>
         </div>
 
-        <!-- Donor Search Results -->
-        <?php if ($search_mode): ?>
-            <h3 class="section-title"><i class="bi bi-people-fill"></i> Donor Results</h3>
-            <?php if (count($donors) > 0): ?>
-                <div class="row g-4">
-                    <?php foreach ($donors as $donor): ?>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card donor-card p-3">
-                                <h5><?= htmlspecialchars($donor['name']) ?></h5>
-                                <p><strong>Blood Group:</strong> <?= $donor['blood_group'] ?></p>
-                                <p><strong>Location:</strong> <?= htmlspecialchars($donor['location']) ?></p>
-                                <div class="d-flex justify-content-between">
-                                    <a href="tel:<?= $donor['phone'] ?>" class="btn btn-primary btn-sm">Call</a>
-                                    <a href="https://wa.me/91<?= $donor['phone'] ?>" target="_blank" class="btn btn-success btn-sm">WhatsApp</a>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php else: ?>
-                <p class="text-center text-muted">No donors found for <?= htmlspecialchars($_GET['blood_group']) ?>.</p>
-            <?php endif; ?>
-        <?php endif; ?>
-
         <!-- 🚨 Emergency Requests -->
-        <?php if (count($notifications) > 0): ?>
-            <div class="dashboard-card my-5 border-danger border-2">
-                <h3 class="section-title"><i class="bi bi-bell-fill"></i> Emergency Requests</h3>
-                <div class="row g-4">
-                    <?php foreach ($notifications as $notif): ?>
-                        <?php
-                        // Check if user already responded
-                        $resp_stmt = $conn->prepare("SELECT status FROM request_responses WHERE request_id=? AND user_id=?");
-                        $resp_stmt->bind_param("ii", $notif['request_id'], $user_id);
-                        $resp_stmt->execute();
-                        $response = $resp_stmt->get_result()->fetch_assoc();
-                        ?>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card notif-card p-3 border-danger">
-                                <h5 class="text-danger"><i class="bi bi-hospital"></i> <?= htmlspecialchars($notif['hospital_name']) ?></h5>
-                                <p><strong>Blood Group:</strong> <?= $notif['blood_group'] ?></p>
-                                <p><strong>Message:</strong> <?= htmlspecialchars($notif['message']) ?></p>
-                                <p class="small text-muted"><i class="bi bi-clock"></i> <?= date("M d, Y H:i", strtotime($notif['created_at'])) ?></p>
-                                <div class="d-flex justify-content-between">
-                                    <?php if ($response): ?>
-                                        <?php if ($response['status'] === 'accepted'): ?>
-                                            <span class="badge bg-success">You have accepted this request</span>
-                                            <a href="?action=reject&request_id=<?= $notif['request_id'] ?>"
-                                                class="btn btn-outline-danger btn-sm">Reject</a>
-                                        <?php elseif ($response['status'] === 'rejected'): ?>
-                                            <span class="badge bg-danger">You have rejected this request</span>
-                                            <a href="?action=accept&request_id=<?= $notif['request_id'] ?>"
-                                                class="btn btn-success btn-sm">Accept</a>
+        <div class="card shadow-sm my-5">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">Emergency Requests</h5>
+            </div>
+            <div class="card-body">
+                <?php if (count($notifications) > 0): ?>
+                    <div class="row g-4">
+                        <?php foreach ($notifications as $notif): ?>
+                            <?php
+                            $resp_stmt = $conn->prepare("SELECT status FROM request_responses WHERE request_id=? AND user_id=?");
+                            $resp_stmt->bind_param("ii", $notif['request_id'], $user_id);
+                            $resp_stmt->execute();
+                            $response = $resp_stmt->get_result()->fetch_assoc();
+                            ?>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="emergency-card">
+                                    <!-- Status Ribbon -->
+                                    <div class="status-ribbon">
+                                        <?php if ($response): ?>
+                                            <?php if ($response['status'] === 'accepted'): ?>
+                                                <span class="badge bg-success">Accepted</span>
+                                            <?php elseif ($response['status'] === 'rejected'): ?>
+                                                <span class="badge bg-danger">Rejected</span>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <span class="badge bg-warning text-dark">Pending</span>
                                         <?php endif; ?>
-                                    <?php else: ?>
-                                        <a href="?action=accept&request_id=<?= $notif['request_id'] ?>" class="btn btn-success btn-sm">Accept</a>
-                                        <a href="?action=reject&request_id=<?= $notif['request_id'] ?>" class="btn btn-outline-danger btn-sm">Reject</a>
-                                    <?php endif; ?>
+                                    </div>
+
+                                    <h5><i class="bi bi-hospital"></i> <?= htmlspecialchars($notif['hospital_name']) ?></h5>
+                                    <div class="emergency-info">
+                                        <p><i class="bi bi-droplet-fill"></i><strong>Blood Group:</strong> <?= $notif['blood_group'] ?></p>
+                                        <p><i class="bi bi-people-fill"></i><strong>Units:</strong> <?= $notif['units_donated'] ?>/<?= $notif['units_needed'] ?></p>
+                                        <p><i class="bi bi-chat-left-text"></i><strong>Message:</strong> <?= htmlspecialchars($notif['message']) ?></p>
+                                        <p class="small text-muted"><i class="bi bi-clock-history"></i> <?= date("M d, Y H:i", strtotime($notif['created_at'])) ?></p>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between mt-3">
+                                        <?php if ($response): ?>
+                                            <?php if ($response['status'] === 'accepted'): ?>
+                                                <a href="?action=reject&request_id=<?= $notif['request_id'] ?>" class="btn btn-danger btn-sm w-100">Reject</a>
+                                            <?php elseif ($response['status'] === 'rejected'): ?>
+                                                <a href="?action=accept&request_id=<?= $notif['request_id'] ?>" class="btn btn-success btn-sm w-100">Accept</a>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <a href="?action=accept&request_id=<?= $notif['request_id'] ?>" class="btn btn-success btn-sm">Accept</a>
+                                            <a href="?action=reject&request_id=<?= $notif['request_id'] ?>" class="btn btn-danger btn-sm">Reject</a>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
 
-        <!-- 📅 Upcoming Events -->
-        <div class="dashboard-card mt-4">
-            <h3 class="section-title"><i class="bi bi-calendar-event"></i> Latest Upcoming Events</h3>
-            <div class="row g-4">
-                <?php if (count($events) > 0): ?>
-                    <?php foreach ($events as $event): ?>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card event-card p-3">
-                                <h5><?= htmlspecialchars($event['title']) ?></h5>
-                                <p><strong>Organizer:</strong> <?= htmlspecialchars($event['organizer']) ?></p>
-                                <p><strong>Date:</strong> <?= date("M d, Y", strtotime($event['date'])) ?></p>
-                                <a href="view_event.php?id=<?= $event['event_id'] ?>" class="btn btn-outline-danger btn-sm">View Event</a>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
                 <?php else: ?>
-                    <p class="text-center text-muted">No upcoming events available.</p>
+                    <p class="text-center text-muted">No emergency requests available.</p>
                 <?php endif; ?>
             </div>
         </div>
-    </div>
 
+        <!-- 📊 User Stats -->
+        <div class="row g-3">
+            <div class="col-md-3 col-6">
+                <div class="stats-card bg-primary">
+                    <h4>Total Donations</h4>
+                    <hr>
+                    <h3><?= $total_donations ?></h3>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stats-card bg-success">
+                    <h4>Next Eligible</h4>
+                    <hr>
+                    <h5><?= $days_remaining ?></h5>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stats-card bg-warning">
+                    <h4>Next Donation Date</h4>
+                    <hr>
+                    <h5><?= $next_possible_date ?></h5>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stats-card bg-danger">
+                    <h4>Donor Status</h4>
+                    <hr>
+                    <h5><?= $donor_status ?></h5>
+                </div>
+            </div>
+        </div>
+
+    </div>
     <?php include 'user_layout_end.php'; ?>
     <?php include '../includes/footer.php'; ?>
 
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script>
-        let submitting = false;
+        $(document).ready(function() {
+            $("#searchDonor").on("input", function() {
+                let query = $(this).val().trim();
+                if (query.length === 0) {
+                    $("#searchResults").addClass("d-none").empty();
+                    return;
+                }
+                $.ajax({
+                    url: "search_donor.php",
+                    type: "POST",
+                    data: {
+                        blood_group: query
+                    },
+                    success: function(data) {
+                        let results = JSON.parse(data);
+                        let table = "";
+                        if (results.length > 0) {
+                            table = `<table class="table table-sm mb-0 table-hover">
+            <thead class="table-light">
+              <tr>
+                <th>Name</th>
+                <th>Blood Group</th>
+                <th>Mobile</th>
+              </tr>
+            </thead><tbody>`;
+                            results.forEach(donor => {
+                                table += `<tr style="cursor:pointer" onclick="window.location.href='donor_details.php?id=${donor.user_id}'">
+                <td>${donor.name}</td>
+                <td>${donor.blood_group}</td>
+                <td>${donor.phone}</td>
+              </tr>`;
+                            });
+                            table += "</tbody></table>";
+                        } else {
+                            table = `<div class="p-2 text-muted">No donors found</div>`;
+                        }
+                        $("#searchResults").removeClass("d-none").html(table);
+                    }
 
-        function setLocation() {
-            if (submitting) return true;
-            if (navigator.geolocation) {
-                submitting = true;
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    document.getElementById('latitude').value = position.coords.latitude;
-                    document.getElementById('longitude').value = position.coords.longitude;
-                    document.forms[0].submit();
-                }, function() {
-                    document.forms[0].submit(); // fallback
                 });
-                return false;
-            }
-            return true;
-        }
+            });
+        });
     </script>
+    
 </body>
 
 </html>
