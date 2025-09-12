@@ -28,7 +28,7 @@ if ($donor_result->num_rows > 0) {
 
 // Fetch institutions
 $colleges = [];
-$stmt = $conn->prepare("SELECT institution_id, name FROM institutions WHERE status = 'approved'");
+$stmt = $conn->prepare("SELECT institution_id, name FROM institutions WHERE status = 'approved' AND type = 'college'");
 $stmt->execute();
 $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {

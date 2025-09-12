@@ -8,40 +8,40 @@ $user_college = $_SESSION['institution_id'] ?? null;
 
 $search = $_GET['search'] ?? '';
 
-// ✅ Fetch only upcoming or ongoing events
 $query = "
-    SELECT e.*, i.name AS organizer
+    SELECT e.*, i.name AS organizer,
+           ST_Distance_Sphere(
+               POINT(i.latitude, i.longitude),
+               (SELECT POINT(d.latitude, d.longitude) FROM donors d WHERE d.user_id = ?)
+           ) AS distance
     FROM events e
     JOIN institutions i ON e.institution_id = i.institution_id
-    WHERE (e.status IN ('upcoming', 'ongoing'))
-      AND (e.institution_id = ? 
-        OR ST_Distance_Sphere(
-            POINT(i.latitude, i.longitude),
-            (SELECT POINT(d.latitude, d.longitude) FROM donors d WHERE d.user_id = ?)
-        ) < 30000)
+    WHERE e.status IN ('upcoming', 'ongoing')
       AND (e.title LIKE CONCAT('%', ?, '%') OR i.name LIKE CONCAT('%', ?, '%'))
-    ORDER BY e.date ASC
+    ORDER BY distance ASC, e.date ASC
 ";
 
 $stmt = $conn->prepare($query);
-$stmt->bind_param("iiss", $user_college, $user_id, $search, $search);
+$stmt->bind_param("iss", $user_id, $search, $search);
 $stmt->execute();
 $result = $stmt->get_result();
 $events = $result->fetch_all(MYSQLI_ASSOC);
 
-// ✅ Fetch participated events
+
+// Fetch participated & attended events only
 $part_stmt = $conn->prepare("
-    SELECT e.*, i.name AS organizer
+    SELECT e.*, i.name AS organizer, p.attended, p.donated
     FROM events e
     JOIN event_participation p ON e.event_id = p.event_id
     JOIN institutions i ON e.institution_id = i.institution_id
-    WHERE p.user_id = ?
+    WHERE p.user_id = ? AND p.attended = 1
     ORDER BY e.date DESC
 ");
 $part_stmt->bind_param("i", $user_id);
 $part_stmt->execute();
 $part_result = $part_stmt->get_result();
 $participated = $part_result->fetch_all(MYSQLI_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -140,7 +140,7 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
             </div>
         </form>
 
-        <!-- ✅ Upcoming / Ongoing Events Section -->
+        <!-- Upcoming / Ongoing Events Section -->
         <div class="participated-section">
             <div class="participated-header bg-danger">
                 <h3 class="mb-0"><i class="bi bi-calendar-event"></i> Upcoming & Ongoing Events</h3>
@@ -177,7 +177,7 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
             </div>
         </div>
 
-        <!-- ✅ Participated Events Section -->
+        <!-- Participated Events Section -->
         <div class="participated-section">
             <div class="participated-header">
                 <h3 class="mb-0"><i class="bi bi-check-circle"></i> Your Participated Events</h3>
@@ -186,9 +186,9 @@ $participated = $part_result->fetch_all(MYSQLI_ASSOC);
                 <?php if (count($participated) > 0): ?>
                     <?php foreach ($participated as $event): ?>
                         <?php
-                            $locationParts = explode(',', $event['location']);
-                            $short_location = implode(', ', array_slice($locationParts, 0, 2));
-                            ?>
+                        $locationParts = explode(',', $event['location']);
+                        $short_location = implode(', ', array_slice($locationParts, 0, 2));
+                        ?>
                         <div class="col-md-6 col-lg-4 mb-4">
                             <div class="card event-card border-success h-100">
                                 <div class="event-header bg-success">

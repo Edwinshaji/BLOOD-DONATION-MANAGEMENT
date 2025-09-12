@@ -11,7 +11,15 @@ if (!$event_id) {
     exit;
 }
 
-// ✅ Fetch event details
+// Check if user is available
+$user_check = $conn->prepare("SELECT is_available FROM donors WHERE user_id = ?");
+$user_check->bind_param("i", $user_id);
+$user_check->execute();
+$user_result = $user_check->get_result()->fetch_assoc();
+$is_available = $user_result['is_available'] ?? 0;
+
+
+// Fetch event details
 $stmt = $conn->prepare("
     SELECT e.*, i.name AS organizer
     FROM events e
@@ -27,14 +35,14 @@ if (!$event) {
     exit;
 }
 
-// ✅ Check if user already registered
+// Check if user already registered
 $check_stmt = $conn->prepare("SELECT * FROM event_participation WHERE user_id = ? AND event_id = ?");
 $check_stmt->bind_param("ii", $user_id, $event_id);
 $check_stmt->execute();
 $already_registered = $check_stmt->get_result()->num_rows > 0;
 
-// ✅ Handle registration
-if (isset($_POST['register']) && !$already_registered) {
+// Handle registration only if available
+if (isset($_POST['register']) && !$already_registered && $is_available) {
     $insert = $conn->prepare("INSERT INTO event_participation (event_id, user_id, attended, donated) VALUES (?, ?, 0, 0)");
     $insert->bind_param("ii", $event_id, $user_id);
     if ($insert->execute()) {
@@ -42,6 +50,7 @@ if (isset($_POST['register']) && !$already_registered) {
         exit;
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -206,11 +215,17 @@ if (isset($_POST['register']) && !$already_registered) {
                         <button class="btn btn-secondary btn-register" disabled>
                             <i class="bi bi-x-circle"></i> Event Completed
                         </button>
+                    <?php elseif (!$is_available): ?>
+                        <button class="btn btn-secondary btn-register" disabled>
+                            <i class="bi bi-person-x"></i> Not Available
+                        </button>
+                        <p class="text-danger mt-2">⚠ You must be available to register for events.</p>
                     <?php else: ?>
                         <button type="submit" name="register" class="btn btn-danger btn-register">
                             <i class="bi bi-pencil-square"></i> Register for Event
                         </button>
                     <?php endif; ?>
+
                 </form>
                 <a href="events_user.php" class="btn btn-outline-secondary rounded-pill px-4 mt-3">
                     ← Back to Events

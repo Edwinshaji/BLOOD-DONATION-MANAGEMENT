@@ -2,28 +2,39 @@
 include '../config/db.php';
 
 $email = $_POST['email'] ?? '';
-$response = ['status' => 'notfound', 'message' => 'User not found.You can register'];
+$response = ['status' => 'notfound', 'message' => 'Not found. You can register'];
 
 if ($email) {
-    // Check in users
-    $stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ?");
+    // 1. Check main admin
+    $stmt = $conn->prepare("SELECT * FROM main_admin WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
-    $stmt->store_result();
-    if ($stmt->num_rows > 0) {
-        $response = ['status' => 'found', 'message' => 'User found.You can login'];
+    $result = $stmt->get_result();
+    if ($result->num_rows > 0) {
+        $response = ['status' => 'found', 'message' => 'Admin found. You can login'];
     } else {
-        // Check in institutions
-        $stmt = $conn->prepare("SELECT institution_id FROM institutions WHERE email = ?");
+        // 2. Check users
+        $stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
-        $stmt->store_result();
-        if ($stmt->num_rows > 0) {
-            $response = ['status' => 'found', 'message' => 'Institution found.'];
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $response = ['status' => 'found', 'message' => 'User found. You can login'];
+        } else {
+            // 3. Check institutions (college/hospital)
+            $stmt = $conn->prepare("SELECT institution_id, type FROM institutions WHERE email = ?");
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                $role = $row['type']; // 'college' or 'hospital'
+                $response = ['status' => 'found', 'message' => ucfirst($role) . " found. You can login"];
+            }
         }
     }
     $stmt->close();
 }
+
 echo json_encode($response);
 $conn->close();
-?>

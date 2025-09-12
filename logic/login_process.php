@@ -37,13 +37,21 @@ $stmt->close();
 
 // 2. User/Student Login
 if ($role === 'user' || $role === 'student') {
-    $stmt = $conn->prepare("SELECT user_id, name, email, password, role FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT user_id, name, email, password, role , status FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $stmt->store_result();
     if ($stmt->num_rows === 1) {
-        $stmt->bind_result($user_id, $name, $user_email, $hashed_password, $user_role);
+        $stmt->bind_result($user_id, $name, $user_email, $hashed_password, $user_role, $status);
         $stmt->fetch();
+
+        // Check account status
+        if ($status === 'inactive') {
+            echo "<script>alert('Your account is $status. Please contact the College administrator.');window.location.href='../login.php';</script>";
+            exit;
+        }
+
+
         if (password_verify($password, $hashed_password)) {
             $_SESSION['user_id'] = $user_id;
             $_SESSION['user_name'] = $name;
@@ -71,7 +79,7 @@ if ($role === 'hospital' || $role === 'college') {
         $stmt->bind_result($institution_id, $name, $type, $inst_email, $hashed_password, $status);
         $stmt->fetch();
 
-        // ✅ Check account status
+        // Check account status
         if ($status !== 'approved') {
             echo "<script>alert('Your institution account is $status. Please contact the administrator.');window.location.href='../login.php';</script>";
             exit;

@@ -23,6 +23,35 @@ if (!$donor) {
     echo "<div class='alert alert-danger'>Donor not found.</div>";
     exit;
 }
+function getPlaceNameFromLatLong($lat, $lng)
+{
+    $url = "https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng";
+
+    $opts = [
+        "http" => [
+            "header" => "User-Agent: BloodBankApp/1.0\r\n"
+        ]
+    ];
+    $context = stream_context_create($opts);
+
+    $json = file_get_contents($url, false, $context);
+    if ($json) {
+        $data = json_decode($json, true);
+
+        if (isset($data['address'])) {
+            $address = $data['address'];
+            // Pick the most relevant location field
+            return $address['village'] ?? $address['town'] ?? $address['city'] ?? $address['state'] ?? "Unknown Place";
+        }
+    }
+    return "Unknown Place";
+}
+
+$place_name = "Unknown Place";
+if (!empty($donor['latitude']) && !empty($donor['longitude'])) {
+    $place_name = getPlaceNameFromLatLong($donor['latitude'], $donor['longitude']);
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -153,6 +182,12 @@ if (!$donor) {
                     <p>Last Donated</p>
                     <span><?= $donor['last_donated'] ? date("M d, Y", strtotime($donor['last_donated'])) : "Never" ?></span>
                 </div>
+                <div class="info-card">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    <p>Location</p>
+                    <span><?= htmlspecialchars($place_name) ?></span>
+                </div>
+
             </div>
 
             <!-- Back Button -->
@@ -166,6 +201,7 @@ if (!$donor) {
 
     <?php include 'user_layout_end.php'; ?>
     <?php include '../includes/footer.php'; ?>
+
 </body>
 
 </html>

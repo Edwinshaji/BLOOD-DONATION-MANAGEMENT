@@ -5,6 +5,14 @@ include '../config/db.php';
 
 $user_id = $_SESSION['user_id'];
 
+// Check user availability
+$check_user = $conn->prepare("SELECT is_available FROM donors WHERE user_id=?");
+$check_user->bind_param("i", $user_id);
+$check_user->execute();
+$user_availability = $check_user->get_result()->fetch_assoc();
+$is_available = $user_availability['is_available'] ?? 0;
+
+
 // ---------------- Handle Emergency Request Response ---------------- //
 if (isset($_GET['request_id'], $_GET['action']) && in_array($_GET['action'], ['accept', 'reject'])) {
     $request_id = intval($_GET['request_id']);
@@ -47,11 +55,12 @@ $notif_query = "
           FROM donors d
           WHERE d.user_id = ?
             AND d.blood_group = r.blood_group
-            AND d.is_available = 1
       )
+      AND r.created_at >= DATE_SUB(NOW(), INTERVAL 5 DAY)   -- 🔹 Only last 5 days
     ORDER BY r.created_at DESC
     LIMIT 5
 ";
+
 $stmt = $conn->prepare($notif_query);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -229,13 +238,13 @@ $stmt->close();
         </div>
 
         <!-- 🚨 Emergency Requests -->
-        <div class="card shadow-sm my-5">
+        <div class="card shadow-sm my-5 text-center">
             <div class="card-header bg-danger text-white">
                 <h5 class="mb-0">Emergency Requests</h5>
             </div>
             <div class="card-body">
                 <?php if (count($notifications) > 0): ?>
-                    <div class="row g-4">
+                    <div class="row g-4 justify-content-center">
                         <?php foreach ($notifications as $notif): ?>
                             <?php
                             $resp_stmt = $conn->prepare("SELECT status FROM request_responses WHERE request_id=? AND user_id=?");
@@ -267,17 +276,24 @@ $stmt->close();
                                     </div>
 
                                     <div class="d-flex justify-content-between mt-3">
-                                        <?php if ($response): ?>
-                                            <?php if ($response['status'] === 'accepted'): ?>
-                                                <a href="?action=reject&request_id=<?= $notif['request_id'] ?>" class="btn btn-danger btn-sm w-100">Reject</a>
-                                            <?php elseif ($response['status'] === 'rejected'): ?>
-                                                <a href="?action=accept&request_id=<?= $notif['request_id'] ?>" class="btn btn-success btn-sm w-100">Accept</a>
-                                            <?php endif; ?>
+                                        <?php if (!$is_available): ?>
+                                            <button class="btn btn-secondary btn-sm w-100" disabled>
+                                                <i class="bi bi-person-x"></i> Not Available
+                                            </button>
                                         <?php else: ?>
-                                            <a href="?action=accept&request_id=<?= $notif['request_id'] ?>" class="btn btn-success btn-sm">Accept</a>
-                                            <a href="?action=reject&request_id=<?= $notif['request_id'] ?>" class="btn btn-danger btn-sm">Reject</a>
+                                            <?php if ($response): ?>
+                                                <?php if ($response['status'] === 'accepted'): ?>
+                                                    <a href="?action=reject&request_id=<?= $notif['request_id'] ?>" class="btn btn-danger btn-sm w-100">Reject</a>
+                                                <?php elseif ($response['status'] === 'rejected'): ?>
+                                                    <a href="?action=accept&request_id=<?= $notif['request_id'] ?>" class="btn btn-success btn-sm w-100">Accept</a>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <a href="?action=accept&request_id=<?= $notif['request_id'] ?>" class="btn btn-success btn-sm">Accept</a>
+                                                <a href="?action=reject&request_id=<?= $notif['request_id'] ?>" class="btn btn-danger btn-sm">Reject</a>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </div>
+
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -291,28 +307,21 @@ $stmt->close();
 
         <!-- 📊 User Stats -->
         <div class="row g-3">
-            <div class="col-md-3 col-6">
-                <div class="stats-card bg-primary">
+            <div class="col-md-4 col-12">
+                <div class="stats-card bg-danger">
                     <h4>Total Donations</h4>
                     <hr>
-                    <h3><?= $total_donations ?></h3>
+                    <h5><?= $total_donations ?></h5>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
-                <div class="stats-card bg-success">
+            <div class="col-md-4 col-12">
+                <div class="stats-card bg-danger">
                     <h4>Next Eligible</h4>
                     <hr>
                     <h5><?= $days_remaining ?></h5>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
-                <div class="stats-card bg-warning">
-                    <h4>Next Donation Date</h4>
-                    <hr>
-                    <h5><?= $next_possible_date ?></h5>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
+            <div class="col-md-4 col-12">
                 <div class="stats-card bg-danger">
                     <h4>Donor Status</h4>
                     <hr>
@@ -370,7 +379,7 @@ $stmt->close();
             });
         });
     </script>
-    
+
 </body>
 
 </html>

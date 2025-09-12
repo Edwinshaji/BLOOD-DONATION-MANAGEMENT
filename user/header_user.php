@@ -31,7 +31,7 @@ $userName = $_SESSION['user_name'] ?? 'User';
     .user-header .nav-link.active {
         background: #fff;
         color: #e57373 !important;
-        border-radius: 0.4rem;
+        border-radius: 0.2rem;
         padding: 0.4rem 0.75rem;
     }
 
@@ -71,10 +71,10 @@ $userName = $_SESSION['user_name'] ?? 'User';
     <div class="collapse navbar-collapse" id="userNavbar">
         <ul class="navbar-nav ms-auto mb-2 mb-md-0">
             <li class="nav-item">
-                <a class="nav-link <?= ($current_page == 'index_user.php') ? 'active' : '' ?>" href="index_user.php">Home</a>
+                <a class="nav-link <?= ($current_page == 'index_user.php' || $current_page == 'donor_details.php') ? 'active' : '' ?>" href="index_user.php">Home</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link <?= ($current_page == 'events_user.php') ? 'active' : '' ?>" href="events_user.php">Events</a>
+                <a class="nav-link <?= ($current_page == 'events_user.php' || $current_page == 'view_event.php') ? 'active' : '' ?>" href="events_user.php">Events</a>
             </li>
             <li class="nav-item">
                 <a class="nav-link <?= ($current_page == 'emergency_requests.php') ? 'active' : '' ?>" href="emergency_requests.php">Emergency</a>

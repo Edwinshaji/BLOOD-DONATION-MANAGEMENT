@@ -11,9 +11,33 @@ if (isset($_GET['action']) && isset($_GET['student_id'])) {
     $action = $_GET['action'];
 
     if ($action === 'delete') {
+        // 1. Delete from request_responses
+        $stmt = $conn->prepare("DELETE FROM request_responses WHERE user_id=?");
+        $stmt->bind_param("i", $student_id);
+        $stmt->execute();
+
+        // 2. Delete from donations (if exists, already handled earlier if not done)
+        $stmt = $conn->prepare("DELETE FROM donations WHERE donor_id IN (SELECT donor_id FROM donors WHERE user_id=?)");
+        $stmt->bind_param("i", $student_id);
+        $stmt->execute();
+
+        // 3. Delete from event_participation
+        $stmt = $conn->prepare("DELETE FROM event_participation WHERE user_id=?");
+        $stmt->bind_param("i", $student_id);
+        $stmt->execute();
+
+        // 4. Delete from donors
+        $stmt = $conn->prepare("DELETE FROM donors WHERE user_id=?");
+        $stmt->bind_param("i", $student_id);
+        $stmt->execute();
+
+        // 5. Finally delete student from users
         $stmt = $conn->prepare("DELETE FROM users WHERE user_id=? AND institution_id=? AND role='student'");
         $stmt->bind_param("ii", $student_id, $institution_id);
-        $_SESSION['success'] = $stmt->execute() ? "Student deleted successfully!" : "Error deleting student.";
+
+        $_SESSION['success'] = $stmt->execute()
+            ? "Student deleted successfully!"
+            : "Error deleting student.";
     } elseif ($action === 'deactivate') {
         $stmt = $conn->prepare("UPDATE users SET status='inactive' WHERE user_id=? AND institution_id=? AND role='student'");
         $stmt->bind_param("ii", $student_id, $institution_id);
@@ -40,7 +64,7 @@ if (!empty($search)) {
                             WHERE u.institution_id=? AND u.role='student'
                             AND (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR d.blood_group LIKE ?)
                             ORDER BY u.name ASC");
-    $stmt->bind_param("issss", $institution_id, $search_query, $search_query, $search_query,$search_query);
+    $stmt->bind_param("issss", $institution_id, $search_query, $search_query, $search_query, $search_query);
 } else {
     $stmt = $conn->prepare("SELECT u.user_id, u.name, u.email, u.phone, u.status, d.blood_group
                             FROM users u

@@ -8,6 +8,7 @@
     <style>
         body {
             min-height: 100vh;
+            padding: 1rem;
             font-family: 'Montserrat', Arial, sans-serif;
             background: linear-gradient(135deg, #fff5f5 0%, #ffeaea 100%);
             position: relative;

@@ -32,8 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_event'])) {
 
     if ($event_id) {
         // Update
-        $stmt = $conn->prepare("UPDATE events SET title=?, description=?, date=?, location=?, latitude=?, longitude=? WHERE event_id=? AND institution_id=?");
-        $stmt->bind_param("sssssddi", $title, $description, $date, $location, $latitude, $longitude, $event_id, $institution_id);
+        $stmt = $conn->prepare("UPDATE events 
+    SET title=?, description=?, date=?, location=?, latitude=?, longitude=? 
+    WHERE event_id=? AND institution_id=?");
+        $stmt->bind_param("ssssddii", $title, $description, $date, $location, $latitude, $longitude, $event_id, $institution_id);
+
         $msg = "updated";
     } else {
         // Insert
@@ -345,17 +348,33 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
             document.getElementById('latitude').value = e.latlng.lat;
             document.getElementById('longitude').value = e.latlng.lng;
 
-            // Use Nominatim Reverse Geocoding to get place name
+            // Reverse geocoding
             fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data && data.display_name) {
+                        // Best: full formatted address
                         document.getElementById('location').value = data.display_name;
+                    } else if (data && data.address) {
+                        // Fallback: build from parts
+                        let city = data.address.city || data.address.town || data.address.village || data.address.hamlet || "";
+                        let district = data.address.county || data.address.state_district || "";
+                        let state = data.address.state || "";
+                        let fallbackAddress = [city, district, state].filter(Boolean).join(", ");
+
+                        if (fallbackAddress) {
+                            document.getElementById('location').value = fallbackAddress;
+                        } else {
+                            // Still nothing useful → use raw coordinates
+                            document.getElementById('location').value = `Lat: ${e.latlng.lat}, Lng: ${e.latlng.lng}`;
+                        }
                     } else {
+                        // No response data → use raw coordinates
                         document.getElementById('location').value = `Lat: ${e.latlng.lat}, Lng: ${e.latlng.lng}`;
                     }
                 })
                 .catch(() => {
+                    // Error in fetch → fallback to coordinates
                     document.getElementById('location').value = `Lat: ${e.latlng.lat}, Lng: ${e.latlng.lng}`;
                 });
         });
@@ -372,12 +391,34 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
             document.getElementById('title').value = title;
             document.getElementById('date').value = date;
             document.getElementById('description').value = description;
-            document.getElementById('location').value = location;
             document.getElementById('latitude').value = lat;
             document.getElementById('longitude').value = lng;
+
             if (marker) map.removeLayer(marker);
             marker = L.marker([lat, lng]).addTo(map);
             map.setView([lat, lng], 14);
+
+            // 🔥 Always reverse-geocode for fresh location name
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        document.getElementById('location').value = data.display_name;
+                    } else if (data && data.address) {
+                        let city = data.address.city || data.address.town || data.address.village || data.address.hamlet || "";
+                        let district = data.address.county || data.address.state_district || "";
+                        let state = data.address.state || "";
+                        let fallbackAddress = [city, district, state].filter(Boolean).join(", ");
+
+                        document.getElementById('location').value = fallbackAddress || `Lat: ${lat}, Lng: ${lng}`;
+                    } else {
+                        document.getElementById('location').value = `Lat: ${lat}, Lng: ${lng}`;
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('location').value = `Lat: ${lat}, Lng: ${lng}`;
+                });
+
             document.getElementById('eventModalLabel').innerText = 'Update Event';
             var eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
             eventModal.show();
@@ -396,6 +437,7 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
             document.getElementById('eventModalLabel').innerText = 'Add Event';
         }
     </script>
+
 
 </body>
 

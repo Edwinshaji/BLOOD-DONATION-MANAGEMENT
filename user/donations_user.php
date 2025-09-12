@@ -215,7 +215,11 @@ if ($last_donated) {
                             <tr>
                                 <td><?= $i + 1 ?></td>
                                 <td><?= date("d M Y", strtotime($donation['date'])) ?></td>
-                                <td><?= htmlspecialchars($donation['location']) ?></td>
+                                <?php
+                                $parts = explode(",", $donation['location']);
+                                $city = count($parts) >= 2 ? trim($parts[count($parts) - 6]) : $donation['location'];
+                                ?>
+                                <td><?= htmlspecialchars($city) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
