@@ -25,10 +25,10 @@ $today_requests = $conn->query("SELECT blood_group, message, created_at FROM eme
 $donors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['search_donor'])) {
     $blood_group = $_POST['blood_group'];
-    $stmt = $conn->prepare("SELECT u.user_id, u.name, u.email, u.phone, u.role, d.blood_group, d.latitude, d.longitude
+    $stmt = $conn->prepare("SELECT u.user_id, u.name, u.email, u.phone, u.role, d.blood_group, d.latitude, d.longitude ,d.is_available
                             FROM users u
                             JOIN donors d ON u.user_id=d.user_id
-                            WHERE d.is_available=1 AND d.blood_group=?
+                            WHERE d.blood_group=?
                             ORDER BY (POW(d.latitude-?,2)+POW(d.longitude-?,2)) ASC");
     $stmt->bind_param("sdd", $blood_group, $hospital_lat, $hospital_lng);
     $stmt->execute();
@@ -194,14 +194,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['search_donor'])) {
         function showDonorModal(select) {
             let index = select.value;
             if (index === "") return;
+
             let donor = donors[index];
+            console.log(donor.is_available);
+            // Convert is_available to integer to avoid string issues
+            let isAvailable = parseInt(donor.is_available, 10);
+
+            // Determine availability message
+            let availabilityMessage = isAvailable === 1 ?
+                '<h2 class="text-success">Donor is Available</h2>' :
+                '<h2 class="text-danger">Donor is Not Available</h2>';
+
+
             let details = `
-            <p><strong>Name:</strong> ${donor.name}</p>
-            <p><strong>Email:</strong> ${donor.email}</p>
-            <p><strong>Phone:</strong> ${donor.phone}</p>
-            <p><strong>Role:</strong> ${donor.role}</p>
-            <p><strong>Blood Group:</strong> ${donor.blood_group}</p>
-        `;
+        <p><strong>Name:</strong> ${donor.name}</p>
+        <p><strong>Email:</strong> ${donor.email}</p>
+        <p><strong>Phone:</strong> ${donor.phone}</p>
+        <p><strong>Role:</strong> ${donor.role}</p>
+        <p><strong>Blood Group:</strong> ${donor.blood_group}</p>
+        ${availabilityMessage}
+    `;
+
             document.getElementById('donorDetails').innerHTML = details;
             new bootstrap.Modal(document.getElementById('donorModal')).show();
         }

@@ -5,6 +5,14 @@ include '../config/db.php';
 
 $user_id = $_SESSION['user_id'];
 
+// Check if user has become a donor
+$donor_check_stmt = $conn->prepare("SELECT donor_id FROM donors WHERE user_id = ?");
+$donor_check_stmt->bind_param("i", $user_id);
+$donor_check_stmt->execute();
+$donor_check_result = $donor_check_stmt->get_result();
+$is_donor = $donor_check_result->num_rows > 0; // TRUE if user is a donor, FALSE otherwise
+$donor_check_stmt->close();
+
 // Check user availability
 $check_user = $conn->prepare("SELECT is_available FROM donors WHERE user_id=?");
 $check_user->bind_param("i", $user_id);
@@ -56,7 +64,7 @@ $notif_query = "
           WHERE d.user_id = ?
             AND d.blood_group = r.blood_group
       )
-      AND r.created_at >= DATE_SUB(NOW(), INTERVAL 5 DAY)   -- 🔹 Only last 5 days
+      AND r.created_at >= DATE_SUB(NOW(), INTERVAL 5 DAY)   --  Only last 5 days
     ORDER BY r.created_at DESC
     LIMIT 5
 ";
@@ -211,6 +219,46 @@ $stmt->close();
             top: 15px;
             right: 15px;
         }
+
+        /* Donor alert box styling */
+        .donor-alert {
+            background: linear-gradient(90deg, #ff4b5c, #ff6b81);
+            color: #fff;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+            animation: pulse 2s infinite;
+        }
+
+        /* Button styling */
+        .donor-alert .btn {
+            border-radius: 50px;
+            font-weight: 600;
+            padding: 10px 25px;
+            transition: transform 0.2s;
+        }
+
+        .donor-alert .btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Subtle pulse effect */
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 10px rgba(255, 75, 92, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 25px rgba(255, 75, 92, 0.6);
+            }
+
+            100% {
+                box-shadow: 0 0 10px rgba(255, 75, 92, 0.4);
+            }
+        }
+
+        /* Marquee styling */
+        .donor-alert marquee {
+            font-size: 1rem;
+        }
     </style>
 </head>
 
@@ -231,13 +279,13 @@ $stmt->close();
             <?php unset($_SESSION['error']); ?>
         <?php endif; ?>
 
-        <!-- 🔍 Search Bar -->
+        <!--  Search Bar -->
         <div class="search-container">
             <input type="text" id="searchDonor" class="form-control search-input" placeholder="Search donors by blood group...">
             <div id="searchResults" class="dropdown-results d-none"></div>
         </div>
 
-        <!-- 🚨 Emergency Requests -->
+        <!--  Emergency Requests -->
         <div class="card shadow-sm my-5 text-center">
             <div class="card-header bg-danger text-white">
                 <h5 class="mb-0">Emergency Requests</h5>
@@ -305,7 +353,16 @@ $stmt->close();
             </div>
         </div>
 
-        <!-- 📊 User Stats -->
+        <?php if (!$is_donor): ?>
+            <div class="donor-alert my-3 p-3 rounded text-center">
+                <marquee behavior="scroll" direction="left" scrollamount="6">
+                    <strong>Become a lifesaver! Register as a blood donor today and help save lives.</strong>
+                </marquee>
+                <a href="account_user.php" class="btn btn-danger mt-2 btn-lg">Become a Donor</a>
+            </div>
+        <?php endif; ?>
+
+        <!--  User Stats -->
         <div class="row g-3">
             <div class="col-md-4 col-12">
                 <div class="stats-card bg-danger">

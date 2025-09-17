@@ -6,14 +6,14 @@ include '../config/db.php';
 $user_id = $_SESSION['user_id'];
 
 // ---------------------- Check User Availability ----------------------
-$user_check = $conn->prepare("SELECT is_available FROM donors WHERE user_id = ?");
+$user_check = $conn->prepare("SELECT is_available , blood_group FROM donors WHERE user_id = ?");
 $user_check->bind_param("i", $user_id);
 $user_check->execute();
 $user_result = $user_check->get_result()->fetch_assoc();
 $is_available = $user_result['is_available'] ?? 0;
+$user_blood_group = $user_result['blood_group'] ?? '';
 
-
-// ---------------------- Fetch Active Requests ----------------------
+// Fetch active requests matching user's blood group
 $active_sql = "
     SELECT er.request_id, i.name AS institution_name, er.blood_group, er.units_needed, er.status, er.created_at,
            r.status AS response_status
@@ -21,12 +21,14 @@ $active_sql = "
     JOIN institutions i ON er.institution_id = i.institution_id
     LEFT JOIN request_responses r ON er.request_id = r.request_id AND r.user_id = ?
     WHERE er.status NOT IN ('fulfilled', 'cancelled')
+      AND er.blood_group = ?
     ORDER BY er.created_at DESC
 ";
 $active_stmt = $conn->prepare($active_sql);
-$active_stmt->bind_param("i", $user_id);
+$active_stmt->bind_param("is", $user_id, $user_blood_group);
 $active_stmt->execute();
 $active_requests = $active_stmt->get_result();
+
 
 // ---------------------- Fetch Fulfilled Requests (User Contributions) ----------------------
 $fulfilled_sql = "
@@ -108,11 +110,11 @@ if (isset($_GET['request_id'], $_GET['action']) && in_array($_GET['action'], ['a
 
         <!-- Flash Messages -->
         <?php if (isset($_SESSION['success'])): ?>
-            <div class="alert alert-success"><?= $_SESSION['success'];
-                                                unset($_SESSION['success']); ?></div>
+            <div class="alert alert-success flash-msg"><?= $_SESSION['success'];
+                                                        unset($_SESSION['success']); ?></div>
         <?php elseif (isset($_SESSION['error'])): ?>
-            <div class="alert alert-danger"><?= $_SESSION['error'];
-                                            unset($_SESSION['error']); ?></div>
+            <div class="alert alert-danger flash-msg"><?= $_SESSION['error'];
+                                                        unset($_SESSION['error']); ?></div>
         <?php endif; ?>
 
         <h3 class="mb-4 text-center">Emergency Requests</h3>

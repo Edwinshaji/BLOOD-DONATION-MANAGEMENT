@@ -61,7 +61,7 @@ $stmt->bind_result($total_students);
 $stmt->fetch();
 $stmt->close();
 
-// --- Fetch 2 latest donor confirmations ---
+// --- Fetch 5 latest donor confirmations ---
 $donor_stmt = $conn->query("
     SELECT 
         u.name, 
@@ -70,7 +70,6 @@ $donor_stmt = $conn->query("
         u.institution_id 
     FROM users u
     JOIN donors d ON u.user_id = d.user_id
-    WHERE d.is_confirmed = 0
     ORDER BY u.user_id DESC
     LIMIT 5
 ");

@@ -25,7 +25,6 @@ if ($donor_result->num_rows > 0) {
     $donor_data = $donor_result->fetch_assoc();
 }
 
-
 // Fetch institutions
 $colleges = [];
 $stmt = $conn->prepare("SELECT institution_id, name FROM institutions WHERE status = 'approved' AND type = 'college'");
@@ -40,21 +39,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update_profile'])) {
         $new_name = trim($_POST['name']);
         $new_phone = trim($_POST['phone_number']);
-        $new_role = trim($_POST['role']);
-        $new_institution = ($new_role === 'student') ? intval($_POST['institution']) : null;
+        $new_role = $_POST['role'];
 
-        $stmt = $conn->prepare("UPDATE users SET name = ?, phone = ?, role = ?, institution_id = ? WHERE user_id = ?");
-        $stmt->bind_param("sssii", $new_name, $new_phone, $new_role, $new_institution, $user_id);
-
-        if ($stmt->execute()) {
-            $_SESSION['user_name'] = $new_name;
-            $_SESSION['user_phone'] = $new_phone;
-            $_SESSION['role'] = $new_role;
-            header("Location: account_user.php");
-            exit;
+        // If student selected but no college chosen, fallback to user
+        if ($new_role === 'student') {
+            if (empty($_POST['institution'])) {
+                $new_role = 'user'; // fallback
+                $institution_id = null;
+            } else {
+                $institution_id = $_POST['institution'];
+            }
         } else {
-            $update_error = "Failed to update profile.";
+            $institution_id = null; // not student
         }
+
+        // Update user table
+        $stmt = $conn->prepare("UPDATE users SET name = ?, phone = ?, role = ?, institution_id = ? WHERE user_id = ?");
+        $stmt->bind_param("ssssi", $new_name, $new_phone, $new_role, $institution_id, $_SESSION['user_id']);
+        if ($stmt->execute()) {
+            $_SESSION['success'] = "Profile updated successfully.";
+        } else {
+            $_SESSION['error'] = "Failed to update profile.";
+        }
+        header("Location: account_user.php");
+        exit;
     }
 
     // Handle password change
@@ -279,16 +287,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             <option value="student" <?= ($user['role'] === 'student') ? 'selected' : '' ?>>Student</option>
                         </select>
                     </div>
+
+                    <!-- College Dropdown -->
                     <div class="mb-3 <?= ($user['role'] === 'student') ? '' : 'd-none' ?>" id="institution-group">
                         <label class="form-label">Select Institution</label>
-                        <select class="form-select" name="institution" id="institution">
-                            <option value="">-- Select Institution --</option>
-                            <?php foreach ($colleges as $college): ?>
-                                <option value="<?= $college['institution_id'] ?>" <?= ($user['institution_id'] == $college['institution_id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($college['name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <?php if (!empty($colleges)): ?>
+                            <select class="form-select" name="institution" id="institution">
+                                <option value="">-- Select Institution --</option>
+                                <?php foreach ($colleges as $college): ?>
+                                    <option value="<?= $college['institution_id'] ?>" <?= ($user['institution_id'] == $college['institution_id']) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($college['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php else: ?>
+                            <div class="alert alert-warning small">
+                                Currently there are no colleges in the list, please try after some time.
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -414,17 +430,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <?php include 'user_layout_end.php'; ?>
     <?php include '../includes/footer.php'; ?>
 
-    <!-- Initialize Leaflet Map with Geocoder -->
     <script>
-        let map = L.map('map').setView([10.0, 76.0], 7); // Default to Kerala region
+        // -------- Map 1: Donor Modal --------
+        let map = L.map('map').setView([10.0, 76.0], 7); // Default Kerala view
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Add Geocoder control
+        // Marker
+        let marker = L.marker([10.0, 76.0], {
+            draggable: true
+        }).addTo(map);
+
+        // Geocoder Search (via proxy.php)
         L.Control.geocoder({
+                geocoder: L.Control.Geocoder.nominatim({
+                    serviceUrl: "http://localhost/BLOOD%20DONATION%20MANAGEMENT/includes/proxy.php/"
+                }),
                 defaultMarkGeocode: false
             })
             .on('markgeocode', function(e) {
@@ -436,44 +460,47 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             })
             .addTo(map);
 
-        // Marker that updates on click
-        let marker = L.marker([10.0, 76.0], {
-            draggable: true
-        }).addTo(map);
-
+        // Update hidden fields
         function updateLatLng(e) {
             const latlng = e.latlng || marker.getLatLng();
             document.getElementById('latitude').value = latlng.lat;
             document.getElementById('longitude').value = latlng.lng;
         }
-
-        map.on('click', function(e) {
+        map.on('click', e => {
             marker.setLatLng(e.latlng);
             updateLatLng(e);
         });
-
         marker.on('dragend', updateLatLng);
 
-        // Update fields on modal show
+        // Fix map resize when modal opens
         document.getElementById('donorModal').addEventListener('shown.bs.modal', () => {
             map.invalidateSize();
         });
     </script>
 
     <script>
-        let map2 = L.map('map2').setView([<?= $donor_data['latitude'] ?? 10.0 ?>, <?= $donor_data['longitude'] ?? 76.0 ?>], 7);
+        // -------- Map 2: Location Modal --------
+        let map2 = L.map('map2').setView(
+            [<?= $donor_data['latitude'] ?? 10.0 ?>, <?= $donor_data['longitude'] ?? 76.0 ?>],
+            7
+        );
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map2);
 
-        let marker2 = L.marker([<?= $donor_data['latitude'] ?? 10.0 ?>, <?= $donor_data['longitude'] ?? 76.0 ?>], {
-            draggable: true
-        }).addTo(map2);
+        let marker2 = L.marker(
+            [<?= $donor_data['latitude'] ?? 10.0 ?>, <?= $donor_data['longitude'] ?? 76.0 ?>], {
+                draggable: true
+            }
+        ).addTo(map2);
 
-        // Add geocoder/search control
+        // Geocoder Search (via proxy.php)
         L.Control.geocoder({
+                geocoder: L.Control.Geocoder.nominatim({
+                    serviceUrl: "http://localhost/BLOOD%20DONATION%20MANAGEMENT/includes/proxy.php/"
+                }),
                 defaultMarkGeocode: false
             })
             .on('markgeocode', function(e) {
@@ -485,25 +512,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             })
             .addTo(map2);
 
+        // Update hidden fields
         function updateLatLng2(e) {
             const latlng = e.latlng || marker2.getLatLng();
             document.getElementById('latitude2').value = latlng.lat;
             document.getElementById('longitude2').value = latlng.lng;
         }
-
-        map2.on('click', function(e) {
+        map2.on('click', e => {
             marker2.setLatLng(e.latlng);
             updateLatLng2(e);
         });
-
         marker2.on('dragend', updateLatLng2);
 
         document.getElementById('locationModal').addEventListener('shown.bs.modal', () => {
             map2.invalidateSize();
         });
     </script>
-
-
 
     <script>
         function toggleInstitutionDropdown() {

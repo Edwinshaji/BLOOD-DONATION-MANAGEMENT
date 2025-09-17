@@ -323,83 +323,84 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script>
-        var map = L.map('map').setView([10.0, 76.0], 7);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+        var defaultLat = 10.0;
+        var defaultLng = 76.0;
 
-        var marker;
-        L.Control.geocoder({
-                defaultMarkGeocode: false
-            })
-            .on('markgeocode', function(e) {
+        var map, marker;
+
+        // ---------------- Initialize Map ----------------
+        function initMap(lat = defaultLat, lng = defaultLng) {
+            if (map) map.remove(); // Remove previous map if exists
+
+            map = L.map('map').setView([lat, lng], 10);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            marker = L.marker([lat, lng], {
+                draggable: true
+            }).addTo(map);
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+
+            marker.on('dragend', function(e) {
+                var latlng = e.target.getLatLng();
+                document.getElementById('latitude').value = latlng.lat;
+                document.getElementById('longitude').value = latlng.lng;
+                reverseGeocode(latlng.lat, latlng.lng);
+            });
+
+            map.on('click', function(e) {
+                if (marker) map.removeLayer(marker);
+                marker = L.marker(e.latlng, {
+                    draggable: true
+                }).addTo(map);
+                document.getElementById('latitude').value = e.latlng.lat;
+                document.getElementById('longitude').value = e.latlng.lng;
+                reverseGeocode(e.latlng.lat, e.latlng.lng);
+
+                marker.on('dragend', function(evt) {
+                    var latlng = evt.target.getLatLng();
+                    document.getElementById('latitude').value = latlng.lat;
+                    document.getElementById('longitude').value = latlng.lng;
+                    reverseGeocode(latlng.lat, latlng.lng);
+                });
+            });
+
+            // ---------------- Geocoder Search using Proxy ----------------
+            L.Control.geocoder({
+                defaultMarkGeocode: false,
+                geocoder: L.Control.Geocoder.nominatim({
+                serviceUrl: "http://localhost/BLOOD%20DONATION%20MANAGEMENT/includes/proxy.php/"
+                })
+            }).on('markgeocode', function(e) {
                 var center = e.geocode.center;
                 if (marker) map.removeLayer(marker);
-                marker = L.marker(center).addTo(map);
+                marker = L.marker(center, {
+                    draggable: true
+                }).addTo(map);
                 map.setView(center, 14);
                 document.getElementById('latitude').value = center.lat;
                 document.getElementById('longitude').value = center.lng;
                 document.getElementById('location').value = e.geocode.name;
+
+                marker.on('dragend', function(evt) {
+                    var latlng = evt.target.getLatLng();
+                    document.getElementById('latitude').value = latlng.lat;
+                    document.getElementById('longitude').value = latlng.lng;
+                    reverseGeocode(latlng.lat, latlng.lng);
+                });
             }).addTo(map);
 
-        map.on('click', function(e) {
-            if (marker) map.removeLayer(marker);
-            marker = L.marker(e.latlng).addTo(map);
-            document.getElementById('latitude').value = e.latlng.lat;
-            document.getElementById('longitude').value = e.latlng.lng;
+            // Initial reverse geocode
+            reverseGeocode(lat, lng);
+        }
 
-            // Reverse geocoding
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.display_name) {
-                        // Best: full formatted address
-                        document.getElementById('location').value = data.display_name;
-                    } else if (data && data.address) {
-                        // Fallback: build from parts
-                        let city = data.address.city || data.address.town || data.address.village || data.address.hamlet || "";
-                        let district = data.address.county || data.address.state_district || "";
-                        let state = data.address.state || "";
-                        let fallbackAddress = [city, district, state].filter(Boolean).join(", ");
-
-                        if (fallbackAddress) {
-                            document.getElementById('location').value = fallbackAddress;
-                        } else {
-                            // Still nothing useful → use raw coordinates
-                            document.getElementById('location').value = `Lat: ${e.latlng.lat}, Lng: ${e.latlng.lng}`;
-                        }
-                    } else {
-                        // No response data → use raw coordinates
-                        document.getElementById('location').value = `Lat: ${e.latlng.lat}, Lng: ${e.latlng.lng}`;
-                    }
-                })
-                .catch(() => {
-                    // Error in fetch → fallback to coordinates
-                    document.getElementById('location').value = `Lat: ${e.latlng.lat}, Lng: ${e.latlng.lng}`;
-                });
-        });
-
-        var modal = document.getElementById('eventModal');
-        modal.addEventListener('shown.bs.modal', function() {
-            setTimeout(function() {
-                map.invalidateSize();
-            }, 200);
-        });
-
-        function editEvent(id, title, date, description, location, lat, lng) {
-            document.getElementById('event_id').value = id;
-            document.getElementById('title').value = title;
-            document.getElementById('date').value = date;
-            document.getElementById('description').value = description;
-            document.getElementById('latitude').value = lat;
-            document.getElementById('longitude').value = lng;
-
-            if (marker) map.removeLayer(marker);
-            marker = L.marker([lat, lng]).addTo(map);
-            map.setView([lat, lng], 14);
-
-            // 🔥 Always reverse-geocode for fresh location name
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`)
+        // ---------------- Reverse Geocode using Proxy ----------------
+        function reverseGeocode(lat, lng) {
+            var nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+            fetch(`includes/proxy.php?url=${encodeURIComponent(nominatimUrl)}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data && data.display_name) {
@@ -408,9 +409,8 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
                         let city = data.address.city || data.address.town || data.address.village || data.address.hamlet || "";
                         let district = data.address.county || data.address.state_district || "";
                         let state = data.address.state || "";
-                        let fallbackAddress = [city, district, state].filter(Boolean).join(", ");
-
-                        document.getElementById('location').value = fallbackAddress || `Lat: ${lat}, Lng: ${lng}`;
+                        let fallback = [city, district, state].filter(Boolean).join(", ");
+                        document.getElementById('location').value = fallback || `Lat: ${lat}, Lng: ${lng}`;
                     } else {
                         document.getElementById('location').value = `Lat: ${lat}, Lng: ${lng}`;
                     }
@@ -418,12 +418,31 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
                 .catch(() => {
                     document.getElementById('location').value = `Lat: ${lat}, Lng: ${lng}`;
                 });
+        }
+
+        // ---------------- Modal event for proper size ----------------
+        var modal = document.getElementById('eventModal');
+        modal.addEventListener('shown.bs.modal', function() {
+            setTimeout(function() {
+                map.invalidateSize();
+            }, 200);
+        });
+
+        // ---------------- Edit Event ----------------
+        function editEvent(id, title, date, description, location, lat, lng) {
+            document.getElementById('event_id').value = id;
+            document.getElementById('title').value = title;
+            document.getElementById('date').value = date;
+            document.getElementById('description').value = description;
+
+            initMap(lat, lng);
 
             document.getElementById('eventModalLabel').innerText = 'Update Event';
             var eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
             eventModal.show();
         }
 
+        // ---------------- Reset Form for Add Event ----------------
         function resetForm() {
             document.getElementById('event_id').value = '';
             document.getElementById('title').value = '';
@@ -432,11 +451,16 @@ $completed_events_res = $completed_events->get_result()->fetch_all(MYSQLI_ASSOC)
             document.getElementById('location').value = '';
             document.getElementById('latitude').value = '';
             document.getElementById('longitude').value = '';
-            if (marker) map.removeLayer(marker);
-            map.setView([10.0, 76.0], 7);
+            initMap();
             document.getElementById('eventModalLabel').innerText = 'Add Event';
         }
+
+        // ---------------- Initialize Map on Page Load ----------------
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+        });
     </script>
+
 
 
 </body>

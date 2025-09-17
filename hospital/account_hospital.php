@@ -214,7 +214,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- Leaflet Map with Search -->
     <script>
+        // Initialize map
         let map = L.map('map').setView([<?= $hospital['latitude'] ?? 10.0 ?>, <?= $hospital['longitude'] ?? 76.0 ?>], 7);
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '&copy; OpenStreetMap contributors'
@@ -229,14 +231,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.getElementById('latitude').value = latlng.lat;
             document.getElementById('longitude').value = latlng.lng;
         }
+
         map.on('click', e => {
             marker.setLatLng(e.latlng);
             updateLatLng(e);
         });
+
         marker.on('dragend', updateLatLng);
 
+        // Leaflet Geocoder using your PHP proxy
         L.Control.geocoder({
-            defaultMarkGeocode: false
+            defaultMarkGeocode: false,
+            geocoder: L.Control.Geocoder.nominatim({
+                serviceUrl: "http://localhost/BLOOD%20DONATION%20MANAGEMENT/includes/proxy.php/"
+            })
         }).on('markgeocode', function(e) {
             const latlng = e.geocode.center;
             map.setView(latlng, 15);
@@ -245,10 +253,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.getElementById('longitude').value = latlng.lng;
         }).addTo(map);
 
+        // Fix map rendering inside Bootstrap modal
         document.getElementById('locationModal').addEventListener('shown.bs.modal', () => {
             map.invalidateSize();
         });
     </script>
+
 </body>
 
 </html>

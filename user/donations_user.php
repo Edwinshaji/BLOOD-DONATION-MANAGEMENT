@@ -3,39 +3,63 @@ $required_role = ['user', 'student'];
 include '../includes/auth.php';
 include '../config/db.php';
 
-$stmt = $conn->prepare("SELECT donor_id, last_donated FROM donors WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT donor_id, last_donated, gender, is_available 
+                        FROM donors WHERE user_id = ?");
 $stmt->bind_param("i", $_SESSION['user_id']);
 $stmt->execute();
 $result = $stmt->get_result();
 $donor = $result->fetch_assoc();
 
-if ($donor) {
-    $_SESSION['donor_id'] = $donor['donor_id'];
-    $last_donated = $donor['last_donated'];
+if (!$donor) {
+    // No donor profile → redirect to account page
+    $_SESSION['error'] = "You must complete donor registration to access donations page.";
+    header("Location: index_user.php");
+    exit;
 }
 
-$user_id = $_SESSION['user_id'];
-$donor_id = $_SESSION['donor_id'];
+// donor exists → continue normally
+$_SESSION['donor_id'] = $donor['donor_id'];
+$donor_id=$_SESSION['donor_id'];
+$last_donated = $donor['last_donated'];
+$gender = $donor['gender'];
+$is_available = $donor['is_available'];
 
 // Handle date update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $today = isset($_POST['donated_today']) ? date("Y-m-d") : ($_POST['last_donated'] ?? null);
 
     if ($today) {
-        // Update last_donated and set is_available = 0 (since just donated)
+        if (empty($donor_id)) {
+            $_SESSION['error'] = "No donor record found. Please register as a donor first.";
+            header("Location: donations_user.php");
+            exit;
+        }
+
+        // Update last_donated and set unavailable
         $stmt = $conn->prepare("UPDATE donors SET last_donated = ?, is_available = 0 WHERE donor_id = ?");
         $stmt->bind_param("si", $today, $donor_id);
+        $stmt->execute();
 
-        if ($stmt->execute()) {
+        if ($stmt->affected_rows > 0) {
             $_SESSION['success'] = "Donation date updated successfully! Donor is now marked as unavailable.";
+
+            // Refresh donor data so UI shows latest
+            $refresh = $conn->prepare("SELECT last_donated, is_available FROM donors WHERE donor_id = ?");
+            $refresh->bind_param("i", $donor_id);
+            $refresh->execute();
+            $updated = $refresh->get_result()->fetch_assoc();
+
+            $last_donated = $updated['last_donated'];
+            $is_available = $updated['is_available'];
         } else {
-            $_SESSION['error'] = "Failed to update donation date.";
+            $_SESSION['error'] = "No record updated. (Donor ID: $donor_id)";
         }
 
         header("Location: donations_user.php");
         exit;
     }
 }
+
 
 // Handle manual availability update
 if (isset($_POST['set_available'])) {
@@ -158,10 +182,10 @@ if ($last_donated) {
 
         <!-- Flash messages -->
         <?php if (isset($_SESSION['success'])): ?>
-            <div class="alert alert-success"><?= $_SESSION['success'];
+            <div class="alert alert-success flash-msg"><?= $_SESSION['success'];
                                                 unset($_SESSION['success']); ?></div>
         <?php elseif (isset($_SESSION['error'])): ?>
-            <div class="alert alert-danger"><?= $_SESSION['error'];
+            <div class="alert alert-danger flash-msg"><?= $_SESSION['error'];
                                             unset($_SESSION['error']); ?></div>
         <?php endif; ?>
 
