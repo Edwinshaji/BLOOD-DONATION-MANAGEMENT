@@ -163,7 +163,14 @@ if (!empty($donor['latitude']) && !empty($donor['longitude'])) {
                 <div class="info-card">
                     <i class="bi bi-telephone-fill"></i>
                     <p>Phone</p>
-                    <span><?= htmlspecialchars($donor['phone']) ?></span>
+                    <span>
+                        <?= htmlspecialchars($donor['phone']) ?>
+                        <?php if (!empty($donor['phone'])): ?>
+                            <a href="https://wa.me/<?= preg_replace('/\D/', '', $donor['phone']) ?>" target="_blank" class="btn btn-success btn-sm ms-2" title="Chat on WhatsApp">
+                                <i class="bi bi-whatsapp"></i>
+                            </a>
+                        <?php endif; ?>
+                    </span>
                 </div>
                 <div class="info-card">
                     <i class="bi bi-gender-ambiguous"></i>
